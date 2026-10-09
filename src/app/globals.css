@@ -1,0 +1,538 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════
+   1. THEME TOKENS
+   ───────────────────────────────────────────────────
+   BRAND TOKENS (set by the organizer / layout.tsx):
+     --el-primary   brand color — buttons, headings, borders
+     --el-accent    secondary brand color — hover, highlights
+     --el-bg        page background
+     --el-surface   card / panel background
+     --el-text      default text color
+     --el-on-primary  contrast text drawn ON the primary color
+     --data-theme   "dark" | "light"
+   Everything else below is DERIVED from those values
+   with color-mix(), so re-branding recolors the whole
+   app — borders, badges, hovers, glows — not just the
+   heading. Do not hardcode hex values here.
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Brand (overridable via env vars in layout.tsx) ── */
+  --el-primary: #00ff41;
+  --el-accent: #ff00ff;
+
+  /* Base for every derived shade below. Equals the pure brand color in
+     dark theme; light theme substitutes a darkened copy so borders,
+     badges and text stay readable on white while solid fills keep the
+     original brand color. */
+  --el-brand: var(--el-primary);
+  --el-brand-accent: var(--el-accent);
+
+  /* ── Surfaces & text ── */
+  --el-bg: #1a1a1a;
+  --el-surface: #222222;
+  --el-text: #e0e0e0;
+  --el-text-dim: #9a9a9a;
+  --el-on-primary: #000000;
+
+  /* Text painted in the brand color. In dark theme these mirror the
+     brand shades; light theme darkens the base (--el-brand-text) because
+     pure neon hues are unreadable on white. Backgrounds, borders and
+     glows keep the untouched brand color. */
+  --el-brand-text: var(--el-primary);
+  --el-brand-text-accent: var(--el-accent);
+  --el-t-primary: var(--el-brand-text);
+  --el-t-primary-99: color-mix(in srgb, var(--el-brand-text) 81%, transparent);
+  --el-t-primary-88: color-mix(in srgb, var(--el-brand-text) 73%, transparent);
+  --el-t-primary-77: color-mix(in srgb, var(--el-brand-text) 69%, transparent);
+  --el-t-primary-66: color-mix(in srgb, var(--el-brand-text) 40%, transparent);
+  --el-t-primary-55: color-mix(in srgb, var(--el-brand-text) 33%, transparent);
+  --el-t-primary-44: color-mix(in srgb, var(--el-brand-text) 27%, transparent);
+  --el-t-primary-33: color-mix(in srgb, var(--el-brand-text) 20%, transparent);
+  --el-t-primary-22: color-mix(in srgb, var(--el-brand-text) 13%, transparent);
+  --el-t-primary-15: color-mix(in srgb, var(--el-brand-text) 8%, transparent);
+  --el-t-primary-11: color-mix(in srgb, var(--el-brand-text) 7%, transparent);
+  --el-t-primary-08: color-mix(in srgb, var(--el-brand-text) 3%, transparent);
+  --el-t-primary-d9: var(--el-brand-text);
+  --el-t-accent: var(--el-brand-text-accent);
+  --el-t-accent-bb: var(--el-brand-text-accent);
+  --el-t-accent-cc: color-mix(in srgb, var(--el-brand-text-accent) 80%, transparent);
+
+  /* Scrim / overlay backgrounds (modals, badges over photos).
+     Derived from the page bg so light and dark themes both read correctly. */
+  --el-overlay-50: color-mix(in srgb, var(--el-bg) 50%, transparent);
+  --el-overlay-60: color-mix(in srgb, var(--el-bg) 60%, transparent);
+  --el-overlay-80: color-mix(in srgb, var(--el-bg) 80%, transparent);
+  --el-overlay-95: color-mix(in srgb, var(--el-bg) 95%, transparent);
+
+  /* ── Primary opacity variants ── */
+  --el-primary-08: color-mix(in srgb, var(--el-brand) 3%, transparent);
+  --el-primary-11: color-mix(in srgb, var(--el-brand) 7%, transparent);
+  --el-primary-15: color-mix(in srgb, var(--el-brand) 8%, transparent);
+  --el-primary-22: color-mix(in srgb, var(--el-brand) 13%, transparent);
+  --el-primary-33: color-mix(in srgb, var(--el-brand) 20%, transparent);
+  --el-primary-44: color-mix(in srgb, var(--el-brand) 27%, transparent);
+  --el-primary-55: color-mix(in srgb, var(--el-brand) 33%, transparent);
+  --el-primary-66: color-mix(in srgb, var(--el-brand) 40%, transparent);
+  --el-primary-77: color-mix(in srgb, var(--el-brand) 69%, transparent);
+  --el-primary-88: color-mix(in srgb, var(--el-brand) 73%, transparent);
+  --el-primary-99: color-mix(in srgb, var(--el-brand) 81%, transparent);
+  --el-primary-d9: var(--el-brand);
+
+  /* ── Accent opacity variants ── */
+  --el-accent-28: color-mix(in srgb, var(--el-brand-accent) 16%, transparent);
+  --el-accent-bb: var(--el-brand-accent);
+  --el-accent-cc: color-mix(in srgb, var(--el-brand-accent) 80%, transparent);
+
+  /* ── Semantic colors ── */
+  --el-flame: #ff9d00;
+  --el-flame-dd: #e1ff00;
+  --el-flame-99: #ff9d00cf;
+  --el-red: #ff4444;
+  --el-red-08: #ff444408;
+  --el-red-11: #ff444411;
+  --el-red-33: #ff444433;
+  --el-red-88: #ff444488;
+
+  /* ── Amber (inactive / resting state) ── */
+  --el-amber: #ffaa00;
+  --el-amber-11: #ffaa0011;
+  --el-amber-22: #ffaa0022;
+  --el-amber-33: #ffaa0033;
+  --el-amber-44: #ffaa0044;
+  --el-amber-55: #ffaa0055;
+  --el-amber-88: #ffaa0088;
+  --el-amber-99: #ffaa00cf;
+  --el-amber-d9: #ffaa00;
+
+  /* ── Utility colors ── */
+  --el-cyan: #00ccff;
+  --el-cyan-28: color-mix(in srgb, #00ccff 16%, transparent);
+  --el-cyan-88: #00ccff88;
+  --el-blue: #00aaff;
+  --el-purple: #cc88ff;
+
+  /* ── Surfaces ── */
+  /* (--el-bg / --el-surface declared above as brand tokens) */
+
+  /* ── Glow effects (shadows, overlays, selections) ── */
+  --el-glow-primary-50: color-mix(in srgb, var(--el-primary) 50%, transparent);
+  --el-glow-primary-30: color-mix(in srgb, var(--el-primary) 30%, transparent);
+  --el-glow-primary-25: color-mix(in srgb, var(--el-primary) 25%, transparent);
+  --el-glow-primary-20: color-mix(in srgb, var(--el-primary) 20%, transparent);
+  --el-glow-primary-15: color-mix(in srgb, var(--el-primary) 15%, transparent);
+  --el-glow-primary-10: color-mix(in srgb, var(--el-primary) 10%, transparent);
+  --el-glow-primary-05: color-mix(in srgb, var(--el-primary) 5%, transparent);
+  --el-glow-primary-03: color-mix(in srgb, var(--el-primary) 3%, transparent);
+  --el-glow-primary-02: color-mix(in srgb, var(--el-primary) 2%, transparent);
+  --el-glow-primary-015: color-mix(in srgb, var(--el-primary) 1.5%, transparent);
+  --el-glow-accent-50: color-mix(in srgb, var(--el-accent) 50%, transparent);
+  --el-glow-accent-30: color-mix(in srgb, var(--el-accent) 30%, transparent);
+  --el-glow-accent-25: color-mix(in srgb, var(--el-accent) 25%, transparent);
+  --el-glow-accent-20: color-mix(in srgb, var(--el-accent) 20%, transparent);
+  --el-glow-accent-10: color-mix(in srgb, var(--el-accent) 10%, transparent);
+  --el-glow-accent-06: color-mix(in srgb, var(--el-accent) 6%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════
+   1b. LIGHT THEME
+   Activated by data-theme="light" on <html> (set from
+   NEXT_PUBLIC_THEME). Keeps the same brand colors but
+   flips surfaces, text and effect intensity so the
+   gallery stays legible in daylight / on projectors.
+   ═══════════════════════════════════════════════════ */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* #9a9a9a (dark-theme dim) only reaches 2.6:1 on #f7f7f5 — AA needs 4.5 */
+  --el-text-dim: #6b6b6b;
+
+  /* Neon colors are unreadable on white — pull the brand
+     colors toward a darker shade, but ONLY for text tokens.
+     Backgrounds and borders keep the pure brand color. */
+  --el-brand-text: color-mix(in srgb, var(--el-primary) 68%, #000000);
+  --el-brand-text-accent: color-mix(in srgb, var(--el-accent) 68%, #000000);
+
+  /* Soften glows: light backgrounds bloom badly */
+  --el-glow-primary-50: color-mix(in srgb, var(--el-primary) 30%, transparent);
+  --el-glow-primary-30: color-mix(in srgb, var(--el-primary) 18%, transparent);
+  --el-glow-primary-25: color-mix(in srgb, var(--el-primary) 15%, transparent);
+  --el-glow-primary-20: color-mix(in srgb, var(--el-primary) 12%, transparent);
+  --el-glow-primary-15: color-mix(in srgb, var(--el-primary) 10%, transparent);
+  --el-glow-primary-10: color-mix(in srgb, var(--el-primary) 7%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════
+   2. ELEMENT RESETS & BASE STYLES
+   ═══════════════════════════════════════════════════ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--el-text);
+  background: var(--el-bg);
+  font-family: var(--font-mono), "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* Native cursor: the previous neon SVG cursor hardcoded the hackathon
+   accent color and cannot read CSS vars, so it broke re-branding. */
+a, button, [role="button"], input[type="submit"], select, label[for], .cursor-pointer {
+  cursor: pointer;
+}
+
+input::placeholder {
+  color: var(--el-t-primary-44);
+}
+
+input:focus {
+  outline: none;
+}
+
+::selection {
+  background: var(--el-glow-primary-25);
+  color: var(--el-t-primary);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--el-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--el-primary-33);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--el-primary-66);
+}
+
+/* ═══════════════════════════════════════════════════
+   3. KEYFRAMES
+   ═══════════════════════════════════════════════════ */
+
+@keyframes boot-line {
+  0% { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes scan-sweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes slide-up {
+  0% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes grid-reveal {
+  0% { opacity: 0; clip-path: inset(0 100% 0 0); }
+  100% { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.6; }
+  94% { opacity: 1; }
+  96% { opacity: 0.8; }
+  97% { opacity: 1; }
+}
+
+@keyframes pulse-primary {
+  0%, 100% { box-shadow: 0 0 4px var(--el-glow-primary-30); }
+  50% { box-shadow: 0 0 16px var(--el-glow-primary-50), 0 0 32px var(--el-glow-primary-20); }
+}
+
+@keyframes matrix-drop {
+  0% { transform: translateY(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+@keyframes data-stream {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 0% 100%; }
+}
+
+@keyframes terminal-type {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+@keyframes crosshair-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes skeleton-scan {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% center; }
+  100% { background-position: 100% center; }
+}
+
+/* ═══════════════════════════════════════════════════
+   4. ANIMATION CLASSES
+   ═══════════════════════════════════════════════════ */
+
+.animate-boot-line {
+  animation: boot-line 0.4s ease-out forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+.animate-flicker {
+  animation: flicker 4s ease-in-out infinite;
+}
+
+.animate-pulse-primary {
+  animation: pulse-primary 2s ease-in-out infinite;
+}
+
+.animate-grid-reveal {
+  animation: grid-reveal 0.6s ease-out forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.animate-crosshair-spin {
+  animation: crosshair-spin 3s linear infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+/* ═══════════════════════════════════════════════════
+   5. COMPONENT STYLES
+   Terminal effects, decorations, lightbox, skeleton
+   ═══════════════════════════════════════════════════ */
+
+/* ── Glow effects ── */
+
+.glow-text {
+  text-shadow: 0 0 10px var(--el-glow-primary-50), 0 0 20px var(--el-glow-primary-30),
+    0 0 40px var(--el-glow-primary-10);
+}
+
+.glow-text-subtle {
+  text-shadow: 0 0 8px var(--el-glow-primary-30);
+}
+
+.glow-border {
+  box-shadow: 0 0 8px var(--el-glow-primary-15), inset 0 0 8px var(--el-glow-primary-05);
+}
+
+.glow-border-accent {
+  box-shadow: 0 0 8px var(--el-glow-accent-20), inset 0 0 8px var(--el-glow-accent-06);
+}
+
+.glow-text-accent {
+  text-shadow: 0 0 10px var(--el-glow-accent-50), 0 0 20px var(--el-glow-accent-30),
+    0 0 40px var(--el-glow-accent-10);
+}
+
+/* ── Scan lines ── */
+
+.scan-lines::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    var(--el-glow-primary-015) 2px,
+    var(--el-glow-primary-015) 4px
+  );
+}
+
+.scan-line-bg {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    var(--el-glow-primary-02) 2px,
+    var(--el-glow-primary-02) 4px
+  );
+}
+
+/* ── Grid background ── */
+
+.grid-bg {
+  background-image:
+    linear-gradient(var(--el-glow-primary-03) 1px, transparent 1px),
+    linear-gradient(90deg, var(--el-glow-primary-03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Crosshair decorations ── */
+
+.crosshair-corner {
+  position: relative;
+}
+.crosshair-corner::before,
+.crosshair-corner::after {
+  content: "";
+  position: absolute;
+  border-color: var(--el-primary);
+  opacity: 0.3;
+}
+.crosshair-corner::before {
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+.crosshair-corner::after {
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-bottom: 1px solid;
+  border-right: 1px solid;
+}
+
+/* ── Skeleton loader ── */
+
+.skeleton-terminal {
+  background: linear-gradient(
+    90deg,
+    var(--el-surface) 0%,
+    var(--el-primary-11) 25%,
+    var(--el-primary-22) 50%,
+    var(--el-primary-11) 75%,
+    var(--el-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-scan 2s linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* ── Lightbox ── */
+
+.lightbox-media {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.lightbox-media.loaded {
+  opacity: 1;
+  box-shadow: 0 0 30px var(--el-glow-primary-10);
+}
+
+.lightbox-image {
+  transition: opacity 0.3s ease-in-out, transform 0.2s ease-out;
+}
+
+/* ── Rainbow text ── */
+
+.rainbow-text {
+  background: linear-gradient(45deg, #ff6b6b, #ffa500, #ffff00, #32cd32, #1e90ff, #9370db, #ff69b4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══════════════════════════════════════════════════
+   6. UTILITY CLASSES
+   ═══════════════════════════════════════════════════ */
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Safe area (iOS notch / home indicator) ── */
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe-area-max {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.pb-safe-area-max {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.mb-safe-bottom {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+/* ═══════════════════════════════════════════════════
+   7. RESPONSIVE & DEVICE-SPECIFIC
+   ═══════════════════════════════════════════════════ */
+
+/* Prevent iOS zoom on input focus (requires >= 16px) */
+@media (max-width: 767px) {
+  input[type="text"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Touch device tap highlight */
+@media (hover: none) {
+  button, a {
+    -webkit-tap-highlight-color: var(--el-glow-primary-10);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   8. ACCESSIBILITY
+   ═══════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

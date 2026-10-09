@@ -1,0 +1,5 @@
+{
+  "$schema": "https://layero.ru/schema/layero-v2.json",
+  "runtime": "ssr_next",
+  "nodeVersion": "22"
+}
