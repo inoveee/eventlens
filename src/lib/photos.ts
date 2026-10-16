@@ -8,6 +8,12 @@ import {
   listDriveImagesWithServiceAccount,
   listDriveSubfoldersWithServiceAccount,
 } from "./drive-sa";
+import {
+  listYandexImages,
+  listYandexSubfolders,
+  yandexFullsizeUrl,
+  yandexThumbUrl,
+} from "./yandex-disk";
 
 function supabaseAvailable(): boolean {
   return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -90,7 +96,10 @@ async function fetchSupabaseMetadata(): Promise<Map<string, PhotoMetadata>> {
 }
 
 export async function fetchPhotosWithMetadata(): Promise<PhotoRecord[]> {
-  const drivePhotos = await fetchPhotosFromDriveFolder();
+  const drivePhotos =
+    config.photoSource === "yandex"
+      ? await fetchPhotosFromYandexFolder()
+      : await fetchPhotosFromDriveFolder();
 
   const metadata = await fetchSupabaseMetadata();
   if (metadata.size === 0) return drivePhotos;
@@ -168,6 +177,67 @@ export async function fetchPhotosFromDriveFolder(): Promise<PhotoRecord[]> {
     return allPhotos;
   } catch (err) {
     console.error("[v0] GATE E: ERROR", err);
+    return [];
+  }
+}
+
+function yandexFilesToPhotos(
+  files: Awaited<ReturnType<typeof listYandexImages>>,
+  folder: string,
+): PhotoRecord[] {
+  return files.map((f) => ({
+    id: "",
+    filename: f.name,
+    driveUrl: "",
+    driveFileId: f.path,
+    folder,
+    visibleText: "",
+    peopleDescriptions: "",
+    sceneDescription: "",
+    faceCount: 0,
+    mimeType: f.mimeType || "",
+    processedAt: f.modified || "",
+    thumbnailUrl: yandexThumbUrl(f),
+    downloadUrl: `/api/yandex-download?path=${encodeURIComponent(f.path)}`,
+    fullsizeUrl: yandexFullsizeUrl(f),
+    autoTag: null,
+    ownerName: "",
+    cameraInfo: "",
+  }));
+}
+
+export async function fetchPhotosFromYandexFolder(): Promise<PhotoRecord[]> {
+  const { yandexDiskUrl } = config;
+  if (!yandexDiskUrl) return [];
+
+  try {
+    const opts = { revalidate: 30 };
+    const [rootFiles, subfolders] = await Promise.all([
+      listYandexImages(yandexDiskUrl, "/", opts),
+      listYandexSubfolders(yandexDiskUrl, "/", opts),
+    ]);
+
+    const allPhotos = yandexFilesToPhotos(rootFiles, "Root");
+
+    if (subfolders.length > 0) {
+      const subResults = await Promise.all(
+        subfolders.map(async (sf) => {
+          const files = await listYandexImages(yandexDiskUrl, sf.path, opts);
+          return yandexFilesToPhotos(files, sf.name);
+        }),
+      );
+      for (const photos of subResults) allPhotos.push(...photos);
+    }
+
+    allPhotos.sort(
+      (a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime(),
+    );
+    allPhotos.forEach((p, i) => { p.id = String(i + 1); });
+
+    console.log("[yandex-disk] listed", allPhotos.length, "photos");
+    return allPhotos;
+  } catch (err) {
+    console.error("[yandex-disk] fetchPhotosFromYandexFolder failed:", err);
     return [];
   }
 }

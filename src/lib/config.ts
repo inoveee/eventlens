@@ -24,6 +24,10 @@ export interface EventLensConfig {
   geminiApiKey: string;
   googleApiKey: string;
   driveFolderId: string;
+  /** Photo source: Google Drive folder or a public Yandex Disk share link. */
+  photoSource: "drive" | "yandex";
+  /** Public share link to a Yandex Disk folder (https://disk.yandex.ru/d/…). */
+  yandexDiskUrl: string;
   adminSecret: string;
   // Service Account credentials (for private folders)
   googleClientEmail: string;
@@ -55,6 +59,8 @@ export const config: EventLensConfig = {
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   googleApiKey: process.env.GOOGLE_API_KEY || "",
   driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID || "",
+  photoSource: process.env.PHOTO_SOURCE === "yandex" ? "yandex" : "drive",
+  yandexDiskUrl: (process.env.YANDEX_DISK_FOLDER_URL || "").trim(),
   adminSecret: process.env.ADMIN_API_SECRET || "",
   googleClientEmail: process.env.GOOGLE_CLIENT_EMAIL || "",
   googlePrivateKey: process.env.GOOGLE_PRIVATE_KEY || "",

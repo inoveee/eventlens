@@ -39,7 +39,11 @@ export function useCollage(
     try {
       const files = filteredPhotos
         .filter((p) => selectedIds.has(p.id))
-        .map((p) => ({ fileId: p.driveFileId, filename: p.filename }));
+        .map((p) => ({
+          fileId: p.driveFileId,
+          filename: p.filename,
+          yandexPath: p.fullsizeUrl ? p.driveFileId : undefined,
+        }));
 
       const res = await fetch("/api/collage", {
         method: "POST",
@@ -85,7 +89,11 @@ export function useCollage(
     try {
       const files = filteredPhotos
         .filter((p) => selectedIds.has(p.id))
-        .map((p) => ({ fileId: p.driveFileId, filename: p.filename }));
+        .map((p) => ({
+          fileId: p.driveFileId,
+          filename: p.filename,
+          yandexPath: p.fullsizeUrl ? p.driveFileId : undefined,
+        }));
 
       const res = await fetch("/api/download-zip", {
         method: "POST",

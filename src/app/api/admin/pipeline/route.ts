@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
+import { config } from "@/lib/config";
 import { phaseSync } from "@/lib/pipeline/phases/sync";
 import { phaseScan } from "@/lib/pipeline/phases/scan";
 import { phaseDescribe } from "@/lib/pipeline/phases/describe";
@@ -33,6 +34,18 @@ function getEnvOrThrow(name: string): string {
 }
 
 async function runPhase(phase: Phase, retryErrors = false): Promise<PhaseResult> {
+  if (config.photoSource === "yandex") {
+    return {
+      phase,
+      processed: 0,
+      remaining: 0,
+      done: true,
+      errors: [
+        "Пайплайн обработки работает только с источником Google Drive. Источник PHOTO_SOURCE=yandex показывает фото из ссылки напрямую.",
+      ],
+    };
+  }
+
   const apiKey = getEnvOrThrow("GOOGLE_API_KEY");
   const driveFolderId = getEnvOrThrow("GOOGLE_DRIVE_FOLDER_ID");
 

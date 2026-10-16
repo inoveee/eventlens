@@ -2,12 +2,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
 import { config } from "@/lib/config";
+import { fetchYandexDownloadHref } from "@/lib/yandex-disk";
 
 export const maxDuration = 60;
 
 interface FileEntry {
   fileId: string;
   filename?: string;
+  /** Path inside the shared Yandex Disk folder ("/IMG_0001.jpg"). Original quality. */
+  yandexPath?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -40,11 +43,21 @@ export async function POST(request: NextRequest) {
       const results = await Promise.all(
         batch.map(async (entry, batchIndex) => {
           try {
-            if (!VALID_FILE_ID.test(entry.fileId)) return null;
+            let url: string;
+            if (entry.yandexPath) {
+              const href = await fetchYandexDownloadHref(
+                config.yandexDiskUrl,
+                entry.yandexPath,
+              );
+              if (!href) return null;
+              url = href;
+            } else {
+              if (!VALID_FILE_ID.test(entry.fileId)) return null;
+              url = config.googleApiKey
+                ? `https://www.googleapis.com/drive/v3/files/${entry.fileId}?alt=media&key=${config.googleApiKey}`
+                : `https://lh3.googleusercontent.com/d/${entry.fileId}=w1600`;
+            }
 
-            const url = config.googleApiKey
-              ? `https://www.googleapis.com/drive/v3/files/${entry.fileId}?alt=media&key=${config.googleApiKey}`
-              : `https://lh3.googleusercontent.com/d/${entry.fileId}=w1600`;
             const res = await fetch(url);
             if (!res.ok) return null;
 

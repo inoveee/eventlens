@@ -82,8 +82,17 @@ export default function RootLayout({
         <meta name="theme-color" content={bgColor} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <link rel="preconnect" href="https://lh3.googleusercontent.com" />
-        <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
+        {process.env.PHOTO_SOURCE === "yandex" ? (
+          <>
+            <link rel="preconnect" href="https://downloader.disk.yandex.ru" />
+            <link rel="dns-prefetch" href="https://downloader.disk.yandex.ru" />
+          </>
+        ) : (
+          <>
+            <link rel="preconnect" href="https://lh3.googleusercontent.com" />
+            <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
+          </>
+        )}
         {/* Brand tokens injected after globals.css so they override its defaults */}
         <style dangerouslySetInnerHTML={{ __html: brandTokens }} />
       </head>

@@ -13,6 +13,8 @@ export interface PhotoRecord {
   processedAt: string;
   thumbnailUrl: string;
   downloadUrl: string;
+  /** Full-size viewing URL (Yandex Disk sources). Drive falls back to its own CDN. */
+  fullsizeUrl?: string;
   autoTag: string | null;
   ownerName: string;
   cameraInfo: string;

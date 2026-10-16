@@ -147,8 +147,13 @@ export default function Lightbox({
     const nextPhoto = photos[nextIdx];
     const prevPhoto = photos[prevIdx];
 
-    if (nextPhoto?.driveFileId) toPreload.push(getDriveImageUrl(nextPhoto.driveFileId));
-    if (prevPhoto?.driveFileId && prevIdx !== nextIdx) toPreload.push(getDriveImageUrl(prevPhoto.driveFileId));
+    const preloadUrl = (p?: PhotoRecord) =>
+      p ? p.fullsizeUrl || (p.driveFileId ? getDriveImageUrl(p.driveFileId) : "") : "";
+
+    const nextUrl = preloadUrl(nextPhoto);
+    const prevUrl = preloadUrl(prevPhoto);
+    if (nextUrl) toPreload.push(nextUrl);
+    if (prevUrl && prevIdx !== nextIdx) toPreload.push(prevUrl);
 
     toPreload.forEach((url) => {
       const img = new window.Image();
@@ -216,13 +221,15 @@ export default function Lightbox({
     /\.(mp4|mov|webm|avi)$/i.test(photo.filename) ||
     photo.mimeType?.startsWith("video/");
 
-  const fullImageUrl = photo.driveFileId
-    ? getDriveImageUrl(photo.driveFileId)
-    : "";
+  const fullImageUrl =
+    photo.fullsizeUrl ||
+    (photo.driveFileId ? getDriveImageUrl(photo.driveFileId) : "");
 
-  const videoUrl = photo.driveFileId
-    ? `/api/video?id=${photo.driveFileId}`
-    : "";
+  const videoUrl = photo.fullsizeUrl
+    ? photo.fullsizeUrl
+    : photo.driveFileId
+      ? `/api/video?id=${photo.driveFileId}`
+      : "";
 
   const hasMeta = !!(photo.ownerName || photo.cameraInfo || photo.visibleText || photo.peopleDescriptions || photo.sceneDescription || photo.faceCount > 0);
 

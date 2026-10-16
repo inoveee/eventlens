@@ -3,12 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { config } from "@/lib/config";
 import { pickHeroImage } from "@/lib/gemini";
+import { fetchYandexDownloadHref } from "@/lib/yandex-disk";
 
 export const maxDuration = 60;
 
 interface FileEntry {
   fileId: string;
   filename?: string;
+  /** Path inside the shared Yandex Disk folder ("/IMG_0001.jpg"). Original quality. */
+  yandexPath?: string;
 }
 
 interface GridCell {
@@ -151,14 +154,21 @@ function calculateGrid(
   return { cols, rows: usedRows, canvasHeight: actualHeight, positions };
 }
 
-async function fetchImage(fileId: string): Promise<Buffer | null> {
+async function fetchImage(entry: FileEntry): Promise<Buffer | null> {
   try {
-    const VALID_FILE_ID = /^[a-zA-Z0-9_-]+$/;
-    if (!VALID_FILE_ID.test(fileId)) return null;
+    let url: string;
 
-    const url = config.googleApiKey
-      ? `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${config.googleApiKey}`
-      : `https://lh3.googleusercontent.com/d/${fileId}=w1600`;
+    if (entry.yandexPath) {
+      const href = await fetchYandexDownloadHref(config.yandexDiskUrl, entry.yandexPath);
+      if (!href) return null;
+      url = href;
+    } else {
+      const VALID_FILE_ID = /^[a-zA-Z0-9_-]+$/;
+      if (!VALID_FILE_ID.test(entry.fileId)) return null;
+      url = config.googleApiKey
+        ? `https://www.googleapis.com/drive/v3/files/${entry.fileId}?alt=media&key=${config.googleApiKey}`
+        : `https://lh3.googleusercontent.com/d/${entry.fileId}=w1600`;
+    }
 
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -212,7 +222,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < files.length; i += CONCURRENCY) {
       const batch = files.slice(i, i + CONCURRENCY);
       const results = await Promise.all(
-        batch.map((entry) => fetchImage(entry.fileId)),
+        batch.map((entry) => fetchImage(entry)),
       );
       imageBuffers.push(...results);
     }
