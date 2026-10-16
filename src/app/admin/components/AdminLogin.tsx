@@ -15,7 +15,7 @@ interface AdminLoginProps {
 
 // Сколько сплэш стоит на экране, и сколько длится его растворение
 // (должно совпадать с duration-700 у AdminSplash).
-const SPLASH_MS = 7000;
+const SPLASH_MS = 9000;
 const FADE_MS = 700;
 
 export function AdminLogin({ secret, setSecret, onLogin }: AdminLoginProps) {
