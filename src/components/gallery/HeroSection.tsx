@@ -30,17 +30,24 @@ export default function HeroSection({
 }: HeroSectionProps) {
   if (photos.length === 0) return null;
 
+  const sortLabel =
+    sortOrder === "shuffle"
+      ? "Избранное"
+      : sortOrder === "name-asc"
+        ? "По имени А→Я"
+        : "По имени Я→А";
+
   return (
     <section>
-      <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4">
-        <span className="text-[9px] md:text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-99)]">
-          &#x2500;&#x2500; {sortOrder === "shuffle" ? "ИЗБРАННОЕ" : sortOrder === "name-asc" ? "ПО ИМЕНИ А→Я" : "ПО ИМЕНИ Я→А"}
-        </span>
-        <span className="text-[9px] md:text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-d9)]">
-          [{totalCount} ВСЕГО]
+      <div className="mb-3 flex items-baseline gap-3 md:mb-5">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--el-t-primary)]">
+          {sortLabel}
+        </h2>
+        <span className="text-xs text-[var(--el-text-dim)]">
+          {totalCount} всего
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:gap-2 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {photos.map((photo, index) => (
           <PhotoCard
             key={photo.id}
@@ -59,15 +66,19 @@ export default function HeroSection({
           />
         ))}
       </div>
-      <div className="mt-4 md:mt-6 flex justify-center">
+      <div className="mt-6 flex justify-center md:mt-8">
         <button
           onClick={onBrowseAll}
-          className="inline-flex items-center gap-2 border border-[var(--el-primary-99)] bg-[var(--el-overlay-60)] px-5 py-2.5 text-[11px] md:text-xs font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] transition-all hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)] hover:shadow-[0_0_10px_var(--el-glow-accent-25)] active:bg-[var(--el-primary-99)]"
+          className="group inline-flex items-center gap-3 py-2 pl-5 pr-2 text-sm font-semibold text-[var(--el-on-primary)]"
+          style={{ background: "var(--el-primary)" }}
         >
-          BROWSE ALL {totalCount} PHOTOS
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
+          Смотреть все фото
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/15 transition-transform group-hover:translate-x-0.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="12" x2="19" y2="12" />
+              <polyline points="13 6 19 12 13 18" />
+            </svg>
+          </span>
         </button>
       </div>
     </section>

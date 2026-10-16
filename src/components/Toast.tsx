@@ -35,17 +35,17 @@ export default function Toast({
           : "translate-y-4 opacity-0"
       }`}
     >
-      <div className="flex items-center justify-between gap-2 sm:gap-3 border border-[var(--el-primary-44)] bg-[var(--el-bg)] px-3 py-2.5 sm:px-4 sm:py-3 shadow-[0_0_20px_var(--el-glow-primary-10)]">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--el-t-primary)] min-w-0 truncate">
-          &#9679; {message.toUpperCase()}
+      <div className="el-glass flex items-center justify-between gap-2 sm:gap-3 rounded-2xl px-4 py-3 shadow-[0_16px_48px_rgba(0,0,0,0.3)]">
+        <span className="min-w-0 truncate text-sm text-[var(--el-text)]">
+          {message}
         </span>
         <div className="flex items-center gap-2 shrink-0">
           {action && (
             <button
               onClick={action.onClick}
-              className="border border-[var(--el-primary-99)] px-3 py-1.5 sm:py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] active:bg-[var(--el-primary-11)] transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)]"
+              className="border border-[var(--el-primary-33)] px-4 py-1.5 text-xs font-medium text-[var(--el-t-primary-99)] hover:bg-[var(--el-primary-11)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--el-primary)]"
             >
-              [{action.label}]
+              {action.label}
             </button>
           )}
           <button
@@ -53,7 +53,7 @@ export default function Toast({
               setVisible(false);
               setTimeout(onDismiss, 300);
             }}
-            className="p-1 text-[var(--el-flame-99)] hover:text-[var(--el-t-accent)] active:text-[var(--el-t-primary)] transition-colors"
+            className="p-1.5 text-[var(--el-text-dim)] hover:text-[var(--el-text)] transition-colors"
             aria-label="Скрыть"
           >
             <svg

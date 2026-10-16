@@ -31,15 +31,13 @@ export default function AlbumGrid({
 
   return (
     <section className="mb-4 md:mb-8">
-      <div className="flex items-center gap-2 mb-2 md:gap-3 md:mb-4">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-99)]">
-          &#x2500;&#x2500; ALBUMS
-        </span>
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-d9)]">
-          [{folders.length}]
-        </span>
+      <div className="mb-3 flex items-baseline gap-3 md:mb-5">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--el-t-primary)]">
+          Альбомы
+        </h2>
+        <span className="text-xs text-[var(--el-text-dim)]">{folders.length}</span>
       </div>
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:gap-2 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {folders.map((folder) => {
           const previews = folderPreviews[folder] || [];
           const count = folderCounts[folder] || 0;
@@ -47,7 +45,7 @@ export default function AlbumGrid({
             <button
               key={folder}
               onClick={() => onSelect(folder)}
-              className="group relative aspect-[4/3] overflow-hidden border border-[var(--el-primary-22)] bg-[var(--el-bg)] cursor-pointer transition-all duration-200 hover:border-[var(--el-accent)] hover:shadow-[0_0_20px_var(--el-glow-accent-25)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)]"
+              className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-[var(--el-primary-22)] bg-[var(--el-bg)] cursor-pointer transition-all duration-300 hover:border-[var(--el-accent)] motion-safe:hover:scale-[1.02] motion-safe:hover:shadow-[0_16px_40px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--el-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--el-bg)]"
             >
               <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-[var(--el-primary-11)]">
                 {[0, 1, 2, 3].map((i) => (
@@ -70,17 +68,12 @@ export default function AlbumGrid({
                 ))}
               </div>
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent flex flex-col items-center justify-end pb-3 md:pb-4">
-                <span className="text-[11px] md:text-xs font-mono font-bold uppercase tracking-wider text-[var(--el-t-primary)] group-hover:glow-text-accent transition-all">
-                  {folder}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent flex flex-col items-center justify-end pb-3.5 md:pb-4">
+                <span className="text-sm font-semibold tracking-wide text-white transition-transform duration-300 group-hover:-translate-y-0.5">
+                  {folder.replace(/_/g, " ")}
                 </span>
-                <span className="mt-0.5 md:mt-1 text-[9px] font-mono uppercase tracking-widest text-[var(--el-t-primary-99)]">
-                  {count} PHOTO{count !== 1 ? "S" : ""}
-                </span>
+                <span className="mt-0.5 text-[11px] text-white/70">{count} фото</span>
               </div>
-
-              <div className="absolute top-1 left-1 w-2.5 h-2.5 border-t border-l border-[var(--el-primary-44)] opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute bottom-1 right-1 w-2.5 h-2.5 border-b border-r border-[var(--el-primary-44)] opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           );
         })}

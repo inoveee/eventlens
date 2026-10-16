@@ -180,10 +180,10 @@ export default function FilterSortSheet({
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] md:text-xs font-mono uppercase tracking-wider transition-all ${
+        className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all ${
           hasActiveFilter || hasFolderFilter
-            ? "border border-[var(--el-accent)] text-[var(--el-t-accent)] bg-[var(--el-accent-28)]"
-            : "border border-[var(--el-primary-99)] text-[var(--el-t-primary-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)]"
+            ? "bg-[var(--el-primary)] text-[var(--el-on-primary)] shadow-[0_6px_20px_var(--el-glow-primary-25)]"
+            : "border border-[var(--el-primary-22)] bg-[var(--el-surface)] text-[var(--el-t-primary-99)] hover:border-[var(--el-primary-44)] hover:text-[var(--el-t-primary)]"
         }`}
       >
         {sortOrder === "shuffle" ? (
@@ -205,7 +205,7 @@ export default function FilterSortSheet({
       {open && (
         <div
           id="filter-popover"
-          className="hidden md:block absolute top-full left-0 mt-1 z-50 min-w-[200px] border border-[var(--el-primary-44)] bg-[var(--el-bg)] shadow-[0_4px_24px_rgba(0,0,0,0.5)]"
+          className="hidden md:block el-glass absolute top-full left-0 mt-2 z-50 min-w-[220px] rounded-2xl p-1 shadow-[0_16px_48px_rgba(0,0,0,0.35)] overflow-hidden"
         >
           {desktopContent}
         </div>
@@ -214,9 +214,9 @@ export default function FilterSortSheet({
       {open && (
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-[var(--el-overlay-80)] backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div id="filter-mobile-sheet" className="absolute bottom-0 left-0 right-0 max-h-[75vh] overflow-y-auto border-t border-[var(--el-primary-99)] bg-[var(--el-bg)] animate-slide-up safe-bottom">
+          <div id="filter-mobile-sheet" className="absolute bottom-0 left-0 right-0 max-h-[75vh] overflow-y-auto rounded-t-3xl border-t border-[var(--el-primary-22)] bg-[var(--el-bg)] animate-slide-up safe-bottom">
             <div className="flex justify-center pt-3 pb-1 sticky top-0 bg-[var(--el-bg)]">
-              <div className="w-8 h-1 rounded-full bg-[var(--el-primary-99)]" />
+              <div className="w-9 h-1 rounded-full bg-[var(--el-text)] opacity-25" />
             </div>
             {mobileContent}
           </div>

@@ -6,13 +6,13 @@
    1. THEME TOKENS
    ───────────────────────────────────────────────────
    BRAND TOKENS (set by the organizer / layout.tsx):
-     --el-primary   brand color — buttons, headings, borders
-     --el-accent    secondary brand color — hover, highlights
-     --el-bg        page background
-     --el-surface   card / panel background
-     --el-text      default text color
-     --el-on-primary  contrast text drawn ON the primary color
-     --data-theme   "dark" | "light"
+      --el-primary   brand color — buttons, headings, borders
+      --el-accent    secondary brand color — hover, highlights
+      --el-bg        page background
+      --el-surface   card / panel background
+      --el-text      default text color
+      --el-on-primary  contrast text drawn ON the primary color
+      --data-theme   "dark" | "light"
    Everything else below is DERIVED from those values
    with color-mix(), so re-branding recolors the whole
    app — borders, badges, hovers, glows — not just the
@@ -137,6 +137,9 @@
   --el-glow-accent-20: color-mix(in srgb, var(--el-accent) 20%, transparent);
   --el-glow-accent-10: color-mix(in srgb, var(--el-accent) 10%, transparent);
   --el-glow-accent-06: color-mix(in srgb, var(--el-accent) 6%, transparent);
+
+  /* ── Motion: one calm easing curve everywhere (Apple-style) ── */
+  --el-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -170,6 +173,7 @@
 
 /* ═══════════════════════════════════════════════════
    2. ELEMENT RESETS & BASE STYLES
+   Apple-стэк системных шрифтов + pill-геометрия.
    ═══════════════════════════════════════════════════ */
 
 html {
@@ -179,11 +183,57 @@ html {
 body {
   color: var(--el-text);
   background: var(--el-bg);
-  font-family: var(--font-mono), "JetBrains Mono", "Fira Code", monospace;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Native cursor: the previous neon SVG cursor hardcoded the hackathon
-   accent color and cannot read CSS vars, so it broke re-branding. */
+/* Pill-геометрия по умолчанию (AFD-референс): все кнопки и поля —
+   скруглённые капсулы. Плитки (карточки фото, альбомов, варианты
+   выбора) перекрывают правило классом rounded-2xl. */
+button {
+  border-radius: 999px;
+  transition:
+    translate 0.18s var(--el-ease),
+    scale 0.18s var(--el-ease),
+    transform 0.18s var(--el-ease),
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
+}
+
+@media (hover: hover) {
+  button:hover {
+    /* отдельные свойства translate/scale, чтобы не конфликтовать
+       с утилитами transform (центрирование стрелок, hover-scale плиток) */
+    translate: 0 -1px;
+  }
+}
+
+button:active {
+  scale: 0.97;
+}
+
+button:disabled:hover,
+button:disabled:active {
+  translate: none;
+  scale: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  border-radius: 16px;
+}
+
 a, button, [role="button"], input[type="submit"], select, label[for], .cursor-pointer {
   cursor: pointer;
 }
@@ -202,18 +252,21 @@ input:focus {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--el-bg);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--el-primary-33);
-  border-radius: 0;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--el-primary-66);
+  background-clip: padding-box;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -221,18 +274,8 @@ input:focus {
    ═══════════════════════════════════════════════════ */
 
 @keyframes boot-line {
-  0% { opacity: 0; transform: translateY(4px); }
+  0% { opacity: 0; transform: translateY(6px); }
   100% { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-@keyframes scan-sweep {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
 }
 
 @keyframes slide-up {
@@ -240,55 +283,23 @@ input:focus {
   100% { transform: translateY(0); opacity: 1; }
 }
 
-@keyframes grid-reveal {
-  0% { opacity: 0; clip-path: inset(0 100% 0 0); }
-  100% { opacity: 1; clip-path: inset(0 0 0 0); }
+@keyframes fade-rise {
+  0% { opacity: 0; transform: translateY(8px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes flicker {
-  0%, 100% { opacity: 1; }
-  92% { opacity: 1; }
-  93% { opacity: 0.6; }
-  94% { opacity: 1; }
-  96% { opacity: 0.8; }
-  97% { opacity: 1; }
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes pulse-primary {
-  0%, 100% { box-shadow: 0 0 4px var(--el-glow-primary-30); }
-  50% { box-shadow: 0 0 16px var(--el-glow-primary-50), 0 0 32px var(--el-glow-primary-20); }
-}
-
-@keyframes matrix-drop {
-  0% { transform: translateY(-100%); opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { transform: translateY(100%); opacity: 0; }
-}
-
-@keyframes data-stream {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 0% 100%; }
-}
-
-@keyframes terminal-type {
-  0% { width: 0; }
-  100% { width: 100%; }
-}
-
-@keyframes crosshair-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--el-glow-primary-30); }
+  50% { box-shadow: 0 0 0 4px var(--el-glow-primary-10); }
 }
 
 @keyframes skeleton-scan {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes gradient-shift {
-  0% { background-position: 0% center; }
-  100% { background-position: 100% center; }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -296,171 +307,128 @@ input:focus {
    ═══════════════════════════════════════════════════ */
 
 .animate-boot-line {
-  animation: boot-line 0.4s ease-out forwards;
+  animation: boot-line 0.4s var(--el-ease) forwards;
   animation-delay: var(--delay, 0s);
-}
-
-.animate-cursor-blink {
-  animation: cursor-blink 1s step-end infinite;
-}
-
-.animate-flicker {
-  animation: flicker 4s ease-in-out infinite;
 }
 
 .animate-pulse-primary {
-  animation: pulse-primary 2s ease-in-out infinite;
+  animation: pulse-primary 2.4s ease-in-out infinite;
 }
 
 .animate-grid-reveal {
-  animation: grid-reveal 0.6s ease-out forwards;
+  animation: fade-rise 0.5s var(--el-ease) forwards;
   animation-delay: var(--delay, 0s);
 }
 
+/* Плавный круговой спиннер (бывший «crosshair»). Бордер + border-radius
+   оставлены здесь, чтобы разметка spinner'ов не менялась. */
 .animate-crosshair-spin {
-  animation: crosshair-spin 3s linear infinite;
+  border-radius: 999px;
+  animation: spin 0.9s linear infinite;
 }
 
 .animate-slide-up {
-  animation: slide-up 0.3s ease-out forwards;
+  animation: slide-up 0.32s var(--el-ease) forwards;
 }
 
 /* ═══════════════════════════════════════════════════
    5. COMPONENT STYLES
-   Terminal effects, decorations, lightbox, skeleton
+   Мягкие тени, hero-глоу, скелетоны, lightbox
    ═══════════════════════════════════════════════════ */
 
-/* ── Glow effects ── */
+/* ── Hero (AFD-референс): всегда тёмная секция с
+      радиальными глоу от бренд-цветов ── */
+
+.el-hero {
+  position: relative;
+  isolation: isolate;
+  color: #ffffff;
+  background:
+    radial-gradient(110% 95% at 6% -15%, color-mix(in srgb, var(--el-primary) 42%, transparent) 0%, transparent 58%),
+    radial-gradient(85% 80% at 97% -5%, color-mix(in srgb, var(--el-accent) 32%, transparent) 0%, transparent 62%),
+    radial-gradient(70% 55% at 50% 115%, color-mix(in srgb, var(--el-primary) 20%, transparent) 0%, transparent 72%),
+    #0a0a0e;
+}
+
+/* Тонкая световая линия внизу hero */
+.el-hero::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--el-primary) 45%, transparent) 35%,
+    color-mix(in srgb, var(--el-accent) 45%, transparent) 65%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ── Glass-панели (popover, lightbox, модалки) ── */
+
+.el-glass {
+  background: color-mix(in srgb, var(--el-surface) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border: 1px solid color-mix(in srgb, var(--el-text) 12%, transparent);
+}
+
+/* ── Мягкие тени вместо неоновых glow ── */
 
 .glow-text {
-  text-shadow: 0 0 10px var(--el-glow-primary-50), 0 0 20px var(--el-glow-primary-30),
-    0 0 40px var(--el-glow-primary-10);
+  text-shadow: 0 1px 24px color-mix(in srgb, var(--el-primary) 35%, transparent);
 }
 
 .glow-text-subtle {
-  text-shadow: 0 0 8px var(--el-glow-primary-30);
+  text-shadow: 0 1px 12px color-mix(in srgb, var(--el-primary) 25%, transparent);
 }
 
 .glow-border {
-  box-shadow: 0 0 8px var(--el-glow-primary-15), inset 0 0 8px var(--el-glow-primary-05);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--el-primary) 12%, transparent);
 }
 
 .glow-border-accent {
-  box-shadow: 0 0 8px var(--el-glow-accent-20), inset 0 0 8px var(--el-glow-accent-06);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--el-accent) 14%, transparent);
 }
 
 .glow-text-accent {
-  text-shadow: 0 0 10px var(--el-glow-accent-50), 0 0 20px var(--el-glow-accent-30),
-    0 0 40px var(--el-glow-accent-10);
+  text-shadow: 0 1px 18px color-mix(in srgb, var(--el-accent) 35%, transparent);
 }
 
-/* ── Scan lines ── */
-
-.scan-lines::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 100;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    var(--el-glow-primary-015) 2px,
-    var(--el-glow-primary-015) 4px
-  );
-}
-
-.scan-line-bg {
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    var(--el-glow-primary-02) 2px,
-    var(--el-glow-primary-02) 4px
-  );
-}
-
-/* ── Grid background ── */
-
-.grid-bg {
-  background-image:
-    linear-gradient(var(--el-glow-primary-03) 1px, transparent 1px),
-    linear-gradient(90deg, var(--el-glow-primary-03) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-/* ── Crosshair decorations ── */
-
-.crosshair-corner {
-  position: relative;
-}
-.crosshair-corner::before,
-.crosshair-corner::after {
-  content: "";
-  position: absolute;
-  border-color: var(--el-primary);
-  opacity: 0.3;
-}
-.crosshair-corner::before {
-  top: 0;
-  left: 0;
-  width: 12px;
-  height: 12px;
-  border-top: 1px solid;
-  border-left: 1px solid;
-}
-.crosshair-corner::after {
-  bottom: 0;
-  right: 0;
-  width: 12px;
-  height: 12px;
-  border-bottom: 1px solid;
-  border-right: 1px solid;
-}
-
-/* ── Skeleton loader ── */
+/* ── Скелетон: мягкое мерцание вместо скан-развёртки ── */
 
 .skeleton-terminal {
   background: linear-gradient(
     90deg,
     var(--el-surface) 0%,
-    var(--el-primary-11) 25%,
-    var(--el-primary-22) 50%,
-    var(--el-primary-11) 75%,
+    color-mix(in srgb, var(--el-primary) 8%, var(--el-surface)) 40%,
+    color-mix(in srgb, var(--el-primary) 14%, var(--el-surface)) 50%,
+    color-mix(in srgb, var(--el-primary) 8%, var(--el-surface)) 60%,
     var(--el-surface) 100%
   );
   background-size: 200% 100%;
-  animation: skeleton-scan 2s linear infinite;
+  animation: skeleton-scan 2.2s ease-in-out infinite;
   animation-delay: var(--delay, 0s);
+  border-radius: 16px;
 }
 
 /* ── Lightbox ── */
 
 .lightbox-media {
   opacity: 0;
-  transition: opacity 0.3s ease-in-out;
+  transition: opacity 0.35s var(--el-ease);
 }
 
 .lightbox-media.loaded {
   opacity: 1;
-  box-shadow: 0 0 30px var(--el-glow-primary-10);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 }
 
 .lightbox-image {
-  transition: opacity 0.3s ease-in-out, transform 0.2s ease-out;
-}
-
-/* ── Rainbow text ── */
-
-.rainbow-text {
-  background: linear-gradient(45deg, #ff6b6b, #ffa500, #ffff00, #32cd32, #1e90ff, #9370db, #ff69b4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  transition: opacity 0.35s var(--el-ease), transform 0.25s var(--el-ease);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -510,6 +478,7 @@ input:focus {
 @media (max-width: 767px) {
   input[type="text"],
   input[type="search"],
+  input[type="password"],
   textarea,
   select {
     font-size: 16px;

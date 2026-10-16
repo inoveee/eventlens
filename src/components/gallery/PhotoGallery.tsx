@@ -122,7 +122,7 @@ export default function PhotoGallery() {
   }), [search, handleMatchResultsWithFilterReset, handleClearMatchWithFilterReset]);
 
   return (
-    <div className="min-h-screen bg-[var(--el-bg)] grid-bg">
+    <div className="min-h-screen bg-[var(--el-bg)]">
       <GalleryHeader
         search={searchWithFilterReset}
         onRefresh={photos.refresh}
@@ -168,13 +168,13 @@ export default function PhotoGallery() {
             </FilterSortBar>
             <button
               onClick={selection.toggleSelectMode}
-              className={`shrink-0 px-2.5 py-1.5 text-[10px] md:text-xs font-mono uppercase tracking-wider transition-all ${
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all ${
                 selection.selectMode
-                  ? "border border-[var(--el-accent)] text-[var(--el-t-accent)] bg-[var(--el-accent-28)] glow-border-accent"
-                  : "border border-[var(--el-primary-99)] text-[var(--el-t-primary-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)]"
+                  ? "bg-[var(--el-primary)] text-[var(--el-on-primary)] shadow-[0_6px_20px_var(--el-glow-primary-25)]"
+                  : "border border-[var(--el-primary-22)] bg-[var(--el-surface)] text-[var(--el-t-primary-99)] hover:border-[var(--el-primary-44)] hover:text-[var(--el-t-primary)]"
               }`}
             >
-              {selection.selectMode ? "ГОТОВО" : "ВЫБРАТЬ"}
+              {selection.selectMode ? "Готово" : "Выбрать"}
             </button>
           </div>
         </div>
@@ -190,7 +190,7 @@ export default function PhotoGallery() {
         />
       )}
 
-      <main className="mx-auto max-w-5xl px-3 pb-16 md:px-4 md:pb-12">
+      <main id="gallery" className="mx-auto max-w-5xl px-3 pb-16 md:px-4 md:pb-12">
         {photos.loading && <GridSkeleton />}
 
         {photos.error && (
@@ -262,15 +262,12 @@ export default function PhotoGallery() {
       </main>
 
       {!photos.loading && !photos.error && photos.allPhotos.length > 0 && (
-        <footer className="border-t border-[var(--el-primary-22)] px-4 py-6 text-center">
-          <div className="flex items-center justify-center gap-4 text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-d9)]">
-            <span>&#x2500;&#x2500;&#x253c;&#x2500;&#x2500;</span>
-            <span>
-              {photos.allPhotos.length} PHOTOS {"//"} {photos.folders.length} FOLDER{photos.folders.length !== 1 ? "S" : ""}
-              {photos.lastUpdated && <> {"//"} UPDATED {timeAgo(photos.lastUpdated).toUpperCase()}</>}
-            </span>
-            <span>&#x2500;&#x2500;&#x253c;&#x2500;&#x2500;</span>
-          </div>
+        <footer className="border-t border-[var(--el-primary-15)] px-4 py-8 text-center">
+          <p className="text-xs text-[var(--el-text-dim)]">
+            {photos.allPhotos.length} фото · {photos.folders.length}{" "}
+            {photos.folders.length === 1 ? "альбом" : photos.folders.length < 5 ? "альбома" : "альбомов"}
+            {photos.lastUpdated && <> · обновлено {timeAgo(photos.lastUpdated)}</>}
+          </p>
         </footer>
       )}
 
@@ -289,7 +286,7 @@ export default function PhotoGallery() {
       {photos.toast && (
         <Toast
           message={photos.toast.message}
-          action={{ label: "ОБНОВЛЕНИЕ", onClick: photos.refresh }}
+          action={{ label: "Обновить", onClick: photos.refresh }}
           onDismiss={() => photos.setToast(null)}
         />
       )}
@@ -305,11 +302,9 @@ export default function PhotoGallery() {
       {collage.collagePending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4">
-            <div className="relative w-10 h-10">
-              <div className="absolute inset-0 border-2 border-[var(--el-primary)] animate-crosshair-spin" />
-            </div>
-            <span className="text-xs font-mono uppercase tracking-widest text-[var(--el-t-primary)]">
-              GENERATING COLLAGE...
+            <div className="h-8 w-8 rounded-full border-2 border-[var(--el-primary-22)] border-t-[var(--el-primary)] animate-crosshair-spin" />
+            <span className="text-xs uppercase tracking-[0.2em] text-[var(--el-t-primary)]">
+              Собираем коллаж…
             </span>
           </div>
         </div>

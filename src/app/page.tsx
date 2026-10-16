@@ -5,7 +5,7 @@ import GridSkeleton from "@/components/gallery/GridSkeleton";
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[var(--el-bg)] grid-bg"><GridSkeleton /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--el-bg)]"><GridSkeleton /></div>}>
       <PhotoGallery />
     </Suspense>
   );

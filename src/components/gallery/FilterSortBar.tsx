@@ -24,8 +24,8 @@ export default function FilterSortBar({ filters, children }: FilterSortBarProps)
       {children}
       {parts.length > 0 && (
         <span
-          className="flex-1 min-w-0 flex items-center gap-1.5 text-[9px] md:text-[10px] font-mono uppercase tracking-wider"
-          style={{ color: "var(--el-cyan)" }}
+          className="flex-1 min-w-0 flex items-center gap-1.5 text-xs"
+          style={{ color: "var(--el-text-dim)" }}
         >
           <span className="truncate">{parts.join(" · ")}</span>
           <button

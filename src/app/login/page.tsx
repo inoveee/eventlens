@@ -38,54 +38,51 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[var(--el-bg)] text-[var(--el-text)] font-mono flex items-center justify-center p-4 scan-line-bg">
+    <div className="el-hero flex min-h-screen items-center justify-center p-5">
       <div className="w-full max-w-md">
-        <div className="border border-[var(--el-primary-d9)] bg-[var(--el-overlay-80)] p-6 backdrop-blur">
-          <div className="flex items-center gap-2 border-b border-[var(--el-primary-99)] pb-3 mb-6">
-            <div className="h-2 w-2 rounded-full bg-[var(--el-primary)]" />
-            <div className="h-2 w-2 rounded-full bg-[var(--el-primary-d9)]" />
-            <div className="h-2 w-2 rounded-full bg-[var(--el-primary-d9)]" />
-            <span className="ml-2 text-[10px] uppercase tracking-widest text-[var(--el-t-primary-d9)]">
-              вход в галерею
-            </span>
-          </div>
-
-          <div className="text-center mb-6">
-            <h1 className="font-heading text-2xl font-bold tracking-wider text-[var(--el-t-primary)] uppercase glow-text">
+        <div className="el-glass rounded-3xl p-7 shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-9">
+          <div className="text-center">
+            {config.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={config.logoUrl}
+                alt={config.eventName}
+                className="mx-auto mb-5 h-12 w-auto object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            )}
+            <h1 className="text-2xl font-black uppercase leading-tight tracking-tight md:text-3xl">
               {config.eventName}
             </h1>
-            <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-[var(--el-t-primary-d9)]">
+            <p className="mt-2 text-sm text-[var(--el-text-dim)]">
               {config.eventTagline}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             <div>
               <label
                 htmlFor="password"
-                className="block text-[10px] uppercase tracking-wider text-[var(--el-t-primary-d9)] mb-2"
+                className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-[var(--el-text-dim)]"
               >
                 Код доступа
               </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--el-t-primary-d9)] text-sm font-mono">
-                  {">_"}
-                </span>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Введите код доступа"
-                  className="w-full border border-[var(--el-primary-d9)] bg-[var(--el-overlay-60)] py-3 pl-10 pr-4 text-sm text-[var(--el-t-primary)] font-mono placeholder:text-[var(--el-t-accent)] outline-none transition-all focus:border-[var(--el-primary)] focus:shadow-[0_0_15px_var(--el-glow-primary-15)]"
-                  disabled={isLoading}
-                  autoFocus
-                />
-              </div>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Введите код доступа"
+                className="w-full rounded-full border border-[var(--el-primary-33)] bg-[var(--el-surface)] px-5 py-3.5 text-base text-[var(--el-text)] transition-all placeholder:text-[var(--el-text-dim)] focus:border-[var(--el-primary)] focus:ring-4 focus:ring-[var(--el-glow-primary-15)]"
+                disabled={isLoading}
+                autoFocus
+              />
             </div>
 
             {error && (
-              <div className="text-[var(--el-flame)] text-xs font-mono uppercase tracking-wider text-center border border-[var(--el-flame-99)] bg-[rgba(255,87,51,0.1)] py-2 px-3">
+              <div className="rounded-full bg-[var(--el-red-11)] px-4 py-2.5 text-center text-sm text-[var(--el-red)]">
                 {error}
               </div>
             )}
@@ -93,12 +90,17 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading || !password}
-              className="w-full border border-[var(--el-primary)] bg-[var(--el-primary)] text-[var(--el-on-primary)] py-3 text-sm font-mono uppercase tracking-wider transition-all hover:bg-transparent hover:text-[var(--el-t-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3.5 text-base font-semibold text-[var(--el-on-primary)] disabled:opacity-50"
+              style={{ background: "var(--el-primary)" }}
             >
               {isLoading ? "Проверяем…" : "Войти в галерею"}
             </button>
           </form>
         </div>
+
+        <p className="mt-6 text-center text-xs text-white/45">
+          Фотографии мероприятия · {config.eventYear}
+        </p>
       </div>
     </div>
   );

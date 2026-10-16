@@ -37,11 +37,11 @@ function PhotoCardInner({
   return (
     <button
       onClick={onClick}
-      className={`group relative aspect-[4/3] overflow-hidden border bg-[var(--el-bg)] cursor-pointer transition-all duration-200 motion-safe:hover:scale-[1.02] hover:shadow-[0_0_20px_var(--el-glow-accent-25)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)] ${index < 40 ? 'animate-grid-reveal' : ''} ${
+      className={`group relative aspect-[4/3] overflow-hidden rounded-2xl border bg-[var(--el-bg)] cursor-pointer transition-all duration-300 motion-safe:hover:scale-[1.02] motion-safe:hover:shadow-[0_16px_40px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--el-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--el-bg)] ${index < 40 ? 'animate-grid-reveal' : ''} ${
         selected
-          ? "border-[var(--el-primary)] shadow-[0_0_15px_var(--el-glow-primary-25)] ring-1 ring-[var(--el-primary)]"
+          ? "border-[var(--el-primary)] ring-2 ring-[var(--el-primary)]"
           : matchInfo && matchInfo.confidence >= 70
-            ? "border-[var(--el-primary)] shadow-[0_0_12px_var(--el-glow-primary-20)]"
+            ? "border-[var(--el-primary)]"
             : "border-[var(--el-primary-22)] hover:border-[var(--el-accent)]"
       }`}
       style={index < 40 ? { '--delay': `${index * 0.03}s` } as React.CSSProperties : undefined}
@@ -74,7 +74,7 @@ function PhotoCardInner({
       {(/\.(mp4|mov|webm|avi)$/i.test(photo.filename) ||
         photo.mimeType?.startsWith("video/")) && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(0,0,0,0.6)] border border-[var(--el-primary-77)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--el-primary)" stroke="none">
               <polygon points="6,3 20,12 6,21" />
             </svg>
@@ -85,10 +85,10 @@ function PhotoCardInner({
       {selectMode && (
         <div className="absolute top-1.5 left-1.5 z-10">
           <div
-            className={`flex h-5 w-5 items-center justify-center border transition-all ${
+            className={`flex h-5 w-5 items-center justify-center rounded-full border transition-all ${
               selected
                 ? "border-[var(--el-primary)] bg-[var(--el-primary)]"
-                : "border-[var(--el-primary-99)] bg-[var(--el-overlay-60)]"
+                : "border-white/60 bg-black/30 backdrop-blur-sm"
             }`}
           >
             {selected && (
@@ -112,49 +112,45 @@ function PhotoCardInner({
       {!selectMode && isHot && !matchInfo && (
         <div className="absolute left-1.5 top-1.5">
           <span
-            className="px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider border"
-            style={{
-              borderColor: "var(--el-primary)",
-              backgroundColor: "var(--el-overlay-80)",
-              color: "var(--el-primary)",
-            }}
+            className="rounded-full bg-black/55 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm"
           >
-            ПОПУЛЯРНОЕ
+            Популярное
           </span>
         </div>
       )}
 
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-2 pb-2 pt-6 group-hover:opacity-0 transition-opacity">
-        <span className="inline-block border border-[var(--el-primary-d9)] bg-[var(--el-overlay-80)] px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-[var(--el-t-primary-d9)]">
-          {photo.folder}
-        </span>
-      </div>
-
-      <div className="absolute inset-0 pointer-events-none z-[2] group-hover:opacity-0 transition-opacity duration-300 scan-line-bg" />
-
-      <div className="absolute top-1 left-1 w-2.5 h-2.5 border-t border-l border-[var(--el-primary-44)] opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="absolute bottom-1 right-1 w-2.5 h-2.5 border-b border-r border-[var(--el-primary-44)] opacity-0 group-hover:opacity-100 transition-opacity" />
+      {!(
+        !photo.folder ||
+        photo.folder.toUpperCase() === "ROOT" ||
+        photo.folder.toUpperCase() === "ALL"
+      ) && (
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2.5 pb-2.5 pt-8 group-hover:opacity-0 transition-opacity">
+          <span className="inline-block rounded-full bg-black/45 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white/85 backdrop-blur-sm">
+            {photo.folder.replace(/_/g, " ")}
+          </span>
+        </div>
+      )}
 
       {!selectMode && matchInfo ? (
         <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
           <span
-            className={`px-1 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider border ${
+            className={`rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm ${
               matchInfo.tier === "both"
-                ? "border-[var(--el-primary)] bg-[var(--el-overlay-80)] text-[var(--el-t-primary)]"
+                ? "ring-1 ring-[var(--el-primary)]"
                 : matchInfo.tier === "visual" || matchInfo.tier === "vector"
-                  ? "border-[var(--el-cyan-88)] bg-[var(--el-overlay-80)] text-[var(--el-cyan)]"
-                  : "border-[var(--el-amber-88)] bg-[var(--el-overlay-80)] text-[var(--el-amber)]"
+                  ? "ring-1 ring-[var(--el-cyan)]"
+                  : "ring-1 ring-[var(--el-amber)]"
             }`}
           >
             {TIER_LABELS[matchInfo.tier]}
           </span>
           <span
-            className={`px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider ${
+            className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${
               matchInfo.confidence >= 70
                 ? "bg-[var(--el-primary)] text-[var(--el-on-primary)]"
                 : matchInfo.confidence >= 50
                   ? "bg-[var(--el-primary-88)] text-[var(--el-on-primary)]"
-                  : "border border-[var(--el-primary-99)] bg-[var(--el-overlay-80)] text-[var(--el-t-primary-d9)]"
+                  : "bg-black/55 text-white/90 backdrop-blur-sm"
             }`}
           >
             {matchInfo.confidence}%
@@ -163,7 +159,7 @@ function PhotoCardInner({
       ) : (
         !selectMode &&
         photo.faceCount > 0 && (
-          <div className="absolute right-1.5 top-1.5 flex items-center justify-center bg-[var(--el-primary)] px-1.5 py-0.5 text-[9px] font-mono font-bold text-[var(--el-on-primary)]">
+          <div className="absolute right-1.5 top-1.5 flex items-center justify-center rounded-full bg-[var(--el-primary)] px-2 py-0.5 text-[9px] font-semibold text-[var(--el-on-primary)]">
             {photo.faceCount} {photo.faceCount === 1 ? "лицо" : "лиц"}
           </div>
         )

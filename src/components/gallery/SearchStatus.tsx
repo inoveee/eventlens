@@ -19,8 +19,8 @@ export default function SearchStatus({
   totalCount,
 }: SearchStatusProps) {
   return (
-    <div className="mx-auto max-w-5xl px-3 md:px-4 pb-2 md:pb-3">
-      <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-99)]">
+    <div className="mx-auto max-w-5xl px-3 md:px-4 pb-3 md:pb-4">
+      <p className="text-sm text-[var(--el-text-dim)]">
         {matchResults !== null ? (
           <>
             {debouncedQuery ? (

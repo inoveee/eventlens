@@ -8,6 +8,7 @@ interface TagTabsProps {
   tagCounts: Record<string, number>;
 }
 
+/** Чипы-pill для тегов. Активный чип — в цвете ивента. */
 export default function TagTabs({
   tags,
   active,
@@ -16,21 +17,27 @@ export default function TagTabs({
 }: TagTabsProps) {
   if (tags.length === 0) return null;
 
+  const chipClass = (isActive: boolean) =>
+    `shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all ${
+      isActive
+        ? "bg-[var(--el-primary)] text-[var(--el-on-primary)] shadow-[0_6px_20px_var(--el-glow-primary-25)]"
+        : "border border-[var(--el-primary-22)] bg-[var(--el-surface)] text-[var(--el-t-primary-99)] hover:border-[var(--el-primary-44)] hover:text-[var(--el-t-primary)]"
+    }`;
+
   return (
     <div className="hidden md:block scrollbar-hide overflow-x-auto -mx-4 px-4">
-      <div className="flex items-center gap-1.5">
-        <span className="shrink-0 text-[10px] font-mono uppercase tracking-widest text-[var(--el-cyan)] opacity-60 mr-1">ТЕГИ</span>
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 mr-1 text-[10px] uppercase tracking-[0.2em] text-[var(--el-text-dim)]">
+          Теги
+        </span>
         {tags.map((tag) => (
           <button
             key={tag}
             onClick={() => onSelect(active === tag ? null : tag)}
-            className={`shrink-0 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-all ${
-              active === tag
-                ? "border border-[var(--el-cyan)] text-[var(--el-cyan)] bg-[rgba(0,255,255,0.1)] shadow-[0_0_8px_rgba(0,255,255,0.2)]"
-                : "border border-[var(--el-primary-99)] text-[var(--el-t-primary-99)] hover:border-[var(--el-cyan)] hover:text-[var(--el-cyan)]"
-            }`}
+            className={chipClass(active === tag)}
           >
-            {tag} [{tagCounts[tag] || 0}]
+            {tag}
+            <span className="ml-1.5 opacity-60">{tagCounts[tag] || 0}</span>
           </button>
         ))}
       </div>

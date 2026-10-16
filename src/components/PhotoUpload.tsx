@@ -9,12 +9,16 @@ interface PhotoUploadProps {
   onMatchResults: (results: MatchResponse) => void;
   onClear: () => void;
   isActive: boolean;
+  /** Hero-кнопки берут на себя запуск выбора файла — скрыть
+   *  собственные кнопки-заглушки, оставив input'ы и статусы. */
+  hideIdleActions?: boolean;
 }
 
 export default function PhotoUpload({
   onMatchResults,
   onClear,
   isActive,
+  hideIdleActions = false,
 }: PhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [statusText, setStatusText] = useState("Ищем ваши фото…");
@@ -127,7 +131,9 @@ export default function PhotoUpload({
   return (
     <div className="mt-2.5 md:mt-4">
       {!isActive && !uploading && (
-        <div className="flex items-center justify-center gap-2">
+        <div className={`flex items-center justify-center gap-2 ${hideIdleActions ? "mt-4" : "mt-3"}`}>
+          {!hideIdleActions && (
+            <>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex items-center gap-1.5 border border-[var(--el-primary-99)] bg-[var(--el-overlay-60)] px-3 py-1.5 text-[10px] md:text-xs md:px-4 md:py-2 font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] transition-all hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)] hover:shadow-[0_0_10px_var(--el-glow-accent-25)]"
@@ -172,9 +178,12 @@ export default function PhotoUpload({
             </svg>
             Камера
           </button>
+            </>
+          )}
 
           <input
             ref={fileInputRef}
+            id="el-face-input"
             type="file"
             accept="image/*"
             onChange={handleFileChange}
@@ -183,6 +192,7 @@ export default function PhotoUpload({
           />
           <input
             ref={cameraInputRef}
+            id="el-camera-input"
             type="file"
             accept="image/*"
             capture="user"
@@ -196,7 +206,7 @@ export default function PhotoUpload({
       {(uploading || isActive) && (
         <div className="flex items-center justify-center gap-3">
           {preview && (
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden border border-[var(--el-primary)] animate-pulse-primary">
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border-2 border-[var(--el-primary)] animate-pulse-primary">
               <Image
                 src={preview}
                 alt="Ваше фото"
@@ -208,16 +218,13 @@ export default function PhotoUpload({
 
           {uploading ? (
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--el-flame-dd)]">
-                <div className="relative w-4 h-4">
-                  <div className="absolute inset-0 border border-[var(--el-primary)] animate-crosshair-spin" />
-                  <div className="absolute inset-1 bg-[var(--el-primary)] animate-pulse" />
-                </div>
+              <div className="flex items-center gap-2 text-sm text-white/85">
+                <div className="h-4 w-4 rounded-full border-2 border-white/25 border-t-white animate-crosshair-spin" />
                 {statusText}
               </div>
               <button
                 onClick={handleCancel}
-                className="inline-flex items-center gap-1.5 border border-[var(--el-primary-99)] bg-[var(--el-overlay-60)] px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] transition-all hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)]"
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/25 px-4 py-1.5 text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -229,7 +236,7 @@ export default function PhotoUpload({
           ) : (
             <button
               onClick={handleClear}
-              className="inline-flex items-center gap-1.5 border border-[var(--el-primary-99)] bg-[var(--el-overlay-60)] px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] transition-all hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/25 px-4 py-1.5 text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white"
             >
               <svg
                 width="12"

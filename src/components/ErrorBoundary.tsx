@@ -24,12 +24,12 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-[var(--el-bg)] px-4 grid-bg">
-          <div className="text-center border border-[var(--el-red-33)] bg-[var(--el-bg)] p-8">
-            <h2 className="font-mono text-sm font-bold uppercase tracking-wider text-red-500">
-              &#9888; ЧТО-ТО ПОШЛО НЕ ТАК
+        <div className="flex min-h-screen items-center justify-center bg-[var(--el-bg)] px-4">
+          <div className="text-center rounded-3xl border border-[var(--el-red-33)] bg-[var(--el-surface)] p-8 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
+            <h2 className="text-sm font-semibold text-[var(--el-red)]">
+              Что-то пошло не так
             </h2>
-            <p className="mt-2 text-xs font-mono uppercase tracking-wider text-[var(--el-t-primary-55)]">
+            <p className="mt-2 text-sm text-[var(--el-text-dim)]">
               Не удалось загрузить галерею
             </p>
             <button
@@ -37,9 +37,9 @@ export default class ErrorBoundary extends Component<Props, State> {
                 this.setState({ hasError: false });
                 window.location.reload();
               }}
-              className="mt-4 border border-[var(--el-primary-99)] px-6 py-2 text-xs font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] hover:bg-[var(--el-accent-28)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)] transition-all"
+              className="mt-5 border border-[var(--el-primary-33)] px-7 py-2.5 text-sm font-medium text-[var(--el-t-primary-99)] hover:border-[var(--el-primary)] hover:text-[var(--el-t-primary)] transition-all"
             >
-              [ОБНОВИТЬ]
+              Обновить
             </button>
           </div>
         </div>

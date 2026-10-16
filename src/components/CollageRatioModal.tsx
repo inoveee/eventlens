@@ -19,7 +19,7 @@ const RATIO_OPTIONS: {
   {
     value: "letterbox",
     label: "16:9",
-    description: "ШИРОКАЯ 16:9",
+    description: "Широкая — для экранов и презентаций",
     icon: (
       <svg width="48" height="27" viewBox="0 0 48 27" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="1" y="1" width="46" height="25" rx="1" />
@@ -32,7 +32,7 @@ const RATIO_OPTIONS: {
   {
     value: "portrait",
     label: "9:16",
-    description: "ВЕРТИКАЛЬНАЯ 9:16",
+    description: "Вертикальная — для сторис",
     icon: (
       <svg width="27" height="48" viewBox="0 0 27 48" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="1" y="1" width="25" height="46" rx="1" />
@@ -45,7 +45,7 @@ const RATIO_OPTIONS: {
   {
     value: "square",
     label: "1:1",
-    description: "КВАДРАТ 1:1",
+    description: "Квадрат — для соцсетей",
     icon: (
       <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="1" y="1" width="38" height="38" rx="1" />
@@ -73,52 +73,47 @@ export default function CollageRatioModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl p-4"
       onClick={onDismiss}
     >
       <div
-        className="relative border border-[var(--el-primary-44)] bg-[var(--el-bg)] p-5 md:p-6 max-w-sm w-[90vw]"
+        className="el-glass relative w-[90vw] max-w-sm rounded-3xl p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[var(--el-primary)] -translate-x-px -translate-y-px" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-[var(--el-primary)] translate-x-px -translate-y-px" />
-        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-[var(--el-primary)] -translate-x-px translate-y-px" />
-        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[var(--el-primary)] translate-x-px translate-y-px" />
-
-        <div className="text-center mb-5">
-          <h2 className="text-xs font-mono uppercase tracking-widest text-[var(--el-t-primary)]">
-            COLLAGE FORMAT
+        <div className="mb-5 text-center">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--el-text)]">
+            Формат коллажа
           </h2>
-          <p className="mt-1 text-[9px] font-mono uppercase tracking-wider text-[var(--el-t-primary-d9)]">
-            {selectedCount} PHOTO{selectedCount !== 1 ? "S" : ""} SELECTED
+          <p className="mt-1 text-xs text-[var(--el-text-dim)]">
+            Выбрано фото: {selectedCount}
           </p>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {RATIO_OPTIONS.map((opt) => {
             const active = chosen === opt.value;
             return (
               <button
                 key={opt.value}
                 onClick={() => setChosen(opt.value)}
-                className={`group flex items-center gap-4 border px-4 py-3 transition-all ${
+                className={`group flex items-center gap-4 rounded-2xl border px-4 py-3.5 transition-all ${
                   active
-                    ? "border-[var(--el-primary)] bg-[var(--el-primary-11)] shadow-[0_0_12px_var(--el-glow-primary-10)]"
-                    : "border-[var(--el-primary-22)] hover:border-[var(--el-primary)] hover:bg-[var(--el-primary-11)] hover:shadow-[0_0_12px_var(--el-glow-primary-10)]"
-                } active:bg-[var(--el-primary-22)]`}
+                    ? "border-[var(--el-primary)] bg-[var(--el-primary-11)]"
+                    : "border-[var(--el-primary-22)] hover:border-[var(--el-primary-44)] hover:bg-[var(--el-primary-08)]"
+                }`}
               >
                 <div className={`shrink-0 w-12 h-12 flex items-center justify-center transition-colors ${
-                  active ? "text-[var(--el-t-primary)]" : "text-[var(--el-t-primary-99)] group-hover:text-[var(--el-t-primary)]"
+                  active ? "text-[var(--el-t-primary)]" : "text-[var(--el-text-dim)] group-hover:text-[var(--el-t-primary)]"
                 }`}>
                   {opt.icon}
                 </div>
                 <div className="text-left">
-                  <span className={`block text-sm font-mono font-bold tracking-wider transition-colors ${
-                    active ? "text-[var(--el-t-primary)]" : "text-[var(--el-t-primary-99)] group-hover:text-[var(--el-t-primary)]"
+                  <span className={`block text-sm font-semibold transition-colors ${
+                    active ? "text-[var(--el-t-primary)]" : "text-[var(--el-text)] group-hover:text-[var(--el-t-primary)]"
                   }`}>
                     {opt.label}
                   </span>
-                  <span className="block text-[9px] font-mono uppercase tracking-wider text-[var(--el-t-primary-d9)]">
+                  <span className="block text-xs text-[var(--el-text-dim)]">
                     {opt.description}
                   </span>
                 </div>
@@ -130,21 +125,18 @@ export default function CollageRatioModal({
         <button
           onClick={() => chosen && onSelect(chosen)}
           disabled={!chosen}
-          className="mt-4 w-full inline-flex items-center justify-center gap-2 border border-[var(--el-primary)] bg-[var(--el-primary-11)] px-3 py-2.5 text-[11px] font-mono uppercase tracking-widest text-[var(--el-t-primary)] hover:bg-[var(--el-primary-22)] hover:shadow-[0_0_16px_var(--el-glow-primary-15)] transition-all disabled:border-[var(--el-primary-22)] disabled:text-[var(--el-t-primary-44)] disabled:bg-transparent disabled:shadow-none disabled:cursor-not-allowed"
+          className="mt-5 w-full py-3 text-sm font-semibold text-[var(--el-on-primary)] transition-all disabled:opacity-40"
+          style={{ background: "var(--el-primary)" }}
         >
-          CREATE COLLAGE
+          Создать коллаж
         </button>
 
         <button
           onClick={onDismiss}
-          className="mt-2 w-full px-3 py-1.5 text-[9px] font-mono uppercase tracking-wider text-[var(--el-t-primary-44)] hover:text-[var(--el-t-primary-99)] transition-colors"
+          className="mt-2 w-full py-2.5 text-sm text-[var(--el-text-dim)] hover:text-[var(--el-text)] transition-colors"
         >
-          CANCEL
+          Отмена
         </button>
-
-        <p className="mt-3 text-center text-[9px] font-mono uppercase tracking-wider text-[var(--el-t-primary-44)]">
-          ESC TO CLOSE
-        </p>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ interface FolderTabsProps {
   folderCounts: Record<string, number>;
 }
 
+/** Чипы-pill для альбомов (папок). Активный чип — в цвете ивента. */
 export default function FolderTabs({
   folders,
   active,
@@ -18,30 +19,28 @@ export default function FolderTabs({
 }: FolderTabsProps) {
   if (folders.length === 0) return null;
 
+  const chipClass = (isActive: boolean) =>
+    `shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all ${
+      isActive
+        ? "bg-[var(--el-primary)] text-[var(--el-on-primary)] shadow-[0_6px_20px_var(--el-glow-primary-25)]"
+        : "border border-[var(--el-primary-22)] bg-[var(--el-surface)] text-[var(--el-t-primary-99)] hover:border-[var(--el-primary-44)] hover:text-[var(--el-t-primary)]"
+    }`;
+
   return (
     <div className="hidden md:block scrollbar-hide overflow-x-auto -mx-4 px-4">
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => onSelect("")}
-          className={`shrink-0 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-all ${
-            active === ""
-              ? "border border-[var(--el-accent)] text-[var(--el-t-accent)] bg-[var(--el-accent-28)] glow-border-accent"
-              : "border border-[var(--el-primary-99)] text-[var(--el-t-primary-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)]"
-          }`}
-        >
-          ALL [{totalCount}]
+      <div className="flex items-center gap-2">
+        <button onClick={() => onSelect("")} className={chipClass(active === "")}>
+          Все
+          <span className="ml-1.5 opacity-60">{totalCount}</span>
         </button>
         {folders.map((folder) => (
           <button
             key={folder}
             onClick={() => onSelect(active === folder ? "" : folder)}
-            className={`shrink-0 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-all ${
-              active === folder
-                ? "border border-[var(--el-accent)] text-[var(--el-t-accent)] bg-[var(--el-accent-28)] glow-border-accent"
-                : "border border-[var(--el-primary-99)] text-[var(--el-t-primary-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)]"
-            }`}
+            className={chipClass(active === folder)}
           >
-            {folder} [{folderCounts[folder] || 0}]
+            {folder.replace(/_/g, " ")}
+            <span className="ml-1.5 opacity-60">{folderCounts[folder] || 0}</span>
           </button>
         ))}
       </div>

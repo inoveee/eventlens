@@ -1,23 +1,8 @@
 // @TheTechMargin 2026
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Space_Mono } from "next/font/google";
 import "./globals.css";
 import Footer from "@/components/Footer";
 import { contrastOn, normalizeHex } from "@/lib/color";
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
-const spaceMono = Space_Mono({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-heading",
-  display: "swap",
-});
 
 const eventName = process.env.NEXT_PUBLIC_EVENT_NAME || "Фотогалерея";
 const eventTagline =
@@ -96,9 +81,7 @@ export default function RootLayout({
         {/* Brand tokens injected after globals.css so they override its defaults */}
         <style dangerouslySetInnerHTML={{ __html: brandTokens }} />
       </head>
-      <body
-        className={`${jetbrainsMono.variable} ${spaceMono.variable} font-mono antialiased bg-[var(--el-bg)] text-[var(--el-text)] scan-lines flex flex-col min-h-screen`}
-      >
+      <body className="antialiased bg-[var(--el-bg)] text-[var(--el-text)] flex flex-col min-h-screen">
         <div className="flex-1">
           {children}
         </div>

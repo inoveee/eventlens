@@ -235,7 +235,7 @@ export default function Lightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-[var(--el-overlay-95)] backdrop-blur-sm h-[100dvh] overflow-hidden"
+      className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-2xl h-[100dvh] overflow-hidden"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -244,13 +244,9 @@ export default function Lightbox({
       aria-label="Photo viewer"
       ref={dialogRef}
     >
-      <div className="absolute inset-0 pointer-events-none z-[51] opacity-30 group-hover/lb:opacity-0 transition-opacity duration-300">
-        <div className="w-full h-full scan-line-bg" />
-      </div>
-
       <div className="relative z-[52] flex items-center justify-between px-3 py-2 pt-safe-area-max md:px-4">
         {photos.length > 1 && (
-          <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-77)]">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs tabular-nums text-white/70 backdrop-blur">
             {currentIndex + 1} / {photos.length}
           </span>
         )}
@@ -259,7 +255,7 @@ export default function Lightbox({
         <button
           ref={closeRef}
           onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center border border-[var(--el-flame-99)] bg-[var(--el-bg)] text-[var(--el-flame-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)] active:bg-[var(--el-primary-99)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)] transition-all"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           aria-label="Закрыть просмотр"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -295,7 +291,7 @@ export default function Lightbox({
         {photos.length > 1 && (
           <button
             onClick={goPrev}
-            className="hidden md:flex absolute left-2 top-1/2 z-[52] -translate-y-1/2 h-12 w-12 items-center justify-center border border-[var(--el-primary-99)] bg-[var(--el-bg)] text-[var(--el-t-primary-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)] transition-all md:left-4"
+            className="hidden md:flex absolute left-4 top-1/2 z-[52] -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             aria-label="Предыдущее фото"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -307,7 +303,7 @@ export default function Lightbox({
         {photos.length > 1 && (
           <button
             onClick={goNext}
-            className="hidden md:flex absolute right-2 top-1/2 z-[52] -translate-y-1/2 h-12 w-12 items-center justify-center border border-[var(--el-primary-99)] bg-[var(--el-bg)] text-[var(--el-t-primary-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)] transition-all md:right-4"
+            className="hidden md:flex absolute right-4 top-1/2 z-[52] -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             aria-label="Следующее фото"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -319,14 +315,9 @@ export default function Lightbox({
         <div ref={imageElRef} className="relative flex items-center justify-center w-full h-full">
           {showSpinner && !imageLoaded && (
             <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative w-8 h-8">
-                  <div className="absolute inset-0 border border-[var(--el-primary)] animate-crosshair-spin" />
-                  <div className="absolute inset-2 bg-[var(--el-primary)] animate-pulse" />
-                </div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-77)]">
-                  LOADING
-                </span>
+              <div className="flex flex-col items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full border-2 border-white/20 border-t-white animate-crosshair-spin" />
+                <span className="text-xs text-white/60">Загрузка…</span>
               </div>
             </div>
           )}
@@ -357,24 +348,28 @@ export default function Lightbox({
         </div>
       </div>
 
-      <div className="relative z-[52] shrink-0 border-t border-[var(--el-primary-22)] bg-[var(--el-bg)] pb-safe-area-max">
-        <div className="flex justify-center pt-1.5 pb-0.5 md:hidden">
-          <div className="w-8 h-0.5 rounded-full bg-[var(--el-primary-33)]" />
+      <div className="relative z-[52] shrink-0 rounded-t-3xl border-t border-[var(--el-primary-22)] bg-[var(--el-overlay-80)] backdrop-blur-xl pb-safe-area-max">
+        <div className="flex justify-center pt-2 pb-0.5 md:hidden">
+          <div className="w-9 h-1 rounded-full bg-[var(--el-text)] opacity-25" />
         </div>
 
         <div className="px-3 py-2 md:px-6 md:py-3">
           {/* Row 1: filename + folder tag + actions */}
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="font-mono text-xs font-bold text-[var(--el-t-primary)] uppercase tracking-wider truncate">
+              <h3 className="text-sm font-semibold text-[var(--el-text)] truncate">
                 {photo.filename}
               </h3>
               <div className="flex items-center gap-1.5 mt-1">
-                <span className="shrink-0 border border-[var(--el-primary-33)] px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-[var(--el-t-primary-99)]">
-                  {photo.folder}
-                </span>
+                {photo.folder &&
+                  photo.folder.toUpperCase() !== "ROOT" &&
+                  photo.folder.toUpperCase() !== "ALL" && (
+                    <span className="shrink-0 rounded-full bg-[var(--el-primary-15)] px-2.5 py-0.5 text-[11px] text-[var(--el-t-primary)]">
+                      {photo.folder.replace(/_/g, " ")}
+                    </span>
+                )}
                 {photo.faceCount > 0 && (
-                  <span className="shrink-0 border border-[var(--el-primary-22)] px-1.5 py-0.5 text-[9px] font-mono text-[var(--el-t-primary-66)]">
+                  <span className="shrink-0 rounded-full border border-[var(--el-primary-22)] px-2.5 py-0.5 text-[11px] text-[var(--el-text-dim)]">
                     {photo.faceCount} {photo.faceCount === 1 ? "лицо" : "лиц"}
                   </span>
                 )}
@@ -438,50 +433,50 @@ export default function Lightbox({
           <div className={`overflow-y-auto transition-all duration-200 ${showMeta ? "max-h-40 opacity-100 mt-2" : "md:max-h-60 md:opacity-100 md:mt-3 max-h-0 opacity-0"}`}>
             {photo.ownerName && (
               <div className="mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-66)]">
-                  {"// PHOTOGRAPHER"}
+                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--el-text-dim)]">
+                  Фотограф
                 </span>
-                <p className="mt-0.5 font-mono text-xs text-[var(--el-flame-99)]">
+                <p className="mt-0.5 text-sm text-[var(--el-text)]">
                   {photo.ownerName}
                 </p>
               </div>
             )}
             {photo.cameraInfo && (
               <div className="mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-66)]">
-                  {"// CAMERA"}
+                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--el-text-dim)]">
+                  Камера
                 </span>
-                <p className="mt-0.5 font-mono text-xs text-[var(--el-t-primary-77)]">
+                <p className="mt-0.5 text-sm text-[var(--el-text)]">
                   {photo.cameraInfo}
                 </p>
               </div>
             )}
             {photo.visibleText && (
               <div className="mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-66)]">
-                  {"// TEXT DETECTED"}
+                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--el-text-dim)]">
+                  Текст на фото
                 </span>
-                <p className="mt-0.5 border-l-2 border-[var(--el-primary-33)] pl-3 font-mono text-xs text-[var(--el-t-primary-99)] line-clamp-2">
+                <p className="mt-0.5 border-l-2 border-[var(--el-primary-33)] pl-3 text-sm text-[var(--el-text)] line-clamp-2">
                   {photo.visibleText}
                 </p>
               </div>
             )}
             {photo.peopleDescriptions && (
               <div className="mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-66)]">
-                  {"// SUBJECTS"}
+                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--el-text-dim)]">
+                  Люди на снимке
                 </span>
-                <p className="mt-0.5 text-xs font-mono text-[var(--el-t-primary-99)] line-clamp-2">
+                <p className="mt-0.5 text-sm text-[var(--el-text)] line-clamp-2">
                   {photo.peopleDescriptions}
                 </p>
               </div>
             )}
             {photo.sceneDescription && (
               <div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--el-t-primary-66)]">
-                  {"// SCENE"}
+                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--el-text-dim)]">
+                  Сцена
                 </span>
-                <p className="mt-0.5 text-xs font-mono text-[var(--el-t-primary-99)] line-clamp-2">
+                <p className="mt-0.5 text-sm text-[var(--el-text)] line-clamp-2">
                   {photo.sceneDescription}
                 </p>
               </div>

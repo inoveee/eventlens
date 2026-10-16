@@ -150,7 +150,9 @@ Fill in the values:
 | `FACE_API_URL` | No | URL of deployed InsightFace microservice |
 | `FACE_API_SECRET` | No | Bearer token for face-api authentication |
 | `NEXT_PUBLIC_EVENT_NAME` | No | Event title displayed in the gallery header (default: `Фотогалерея`) |
-| `NEXT_PUBLIC_EVENT_TAGLINE` | No | Subtitle below the event name |
+| `NEXT_PUBLIC_EVENT_TAGLINE` | No | Subtitle in the page title and on the login screen |
+| `NEXT_PUBLIC_HERO_STATEMENT` | No | Two-tone hero line: first sentence light, the rest in the event color (default: `Вся съёмка с мероприятия. И ваши кадры в ней`) |
+| `NEXT_PUBLIC_EVENT_DESCRIPTION` | No | Supporting line under the hero statement (default: `Сделайте селфи — найдём ваши фото. Или просто листайте галерею по альбомам`) |
 | `NEXT_PUBLIC_EVENT_YEAR` | No | Year shown next to the event name |
 | `NEXT_PUBLIC_LOGO_URL` | No | Organizer logo (SVG/PNG). Empty = text-only header |
 | `NEXT_PUBLIC_THEME` | No | `dark` (default) or `light` color scheme |

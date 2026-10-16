@@ -31,7 +31,7 @@ export default function CollagePreview({
         className="relative flex flex-col items-center gap-4 p-4 max-w-[90vw] max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border border-[var(--el-primary-44)] overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-[var(--el-primary-22)] shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={blobUrl}
@@ -43,13 +43,14 @@ export default function CollagePreview({
         <div className="flex items-center gap-3">
           <button
             onClick={onDismiss}
-            className="border border-[var(--el-primary-99)] px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] hover:border-[var(--el-accent)] hover:text-[var(--el-t-accent)] transition-all"
+            className="border border-white/25 px-5 py-2.5 text-sm text-white/85 hover:bg-white/10 hover:text-white transition-colors"
           >
-            CANCEL
+            Отмена
           </button>
           <button
             onClick={onDownload}
-            className="inline-flex items-center gap-2 border border-[var(--el-primary-99)] bg-[var(--el-primary-11)] px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] hover:bg-[var(--el-primary-22)] transition-all"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[var(--el-on-primary)]"
+            style={{ background: "var(--el-primary)" }}
           >
             <svg
               width="14"
@@ -65,13 +66,9 @@ export default function CollagePreview({
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            DOWNLOAD
+            Скачать
           </button>
         </div>
-
-        <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--el-t-primary-44)]">
-          ESC TO CLOSE
-        </span>
       </div>
     </div>
   );

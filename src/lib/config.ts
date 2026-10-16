@@ -11,6 +11,11 @@ export interface EventLensConfig {
   eventName: string;
   eventYear: string;
   eventTagline: string;
+  /** Optional supporting paragraph shown under the hero title. */
+  eventDescription: string;
+  /** Two-tone hero statement: the first sentence is drawn light, the rest
+   *  after it in the event accent color (AFD-style). */
+  heroStatement: string;
   /** Organizer logo URL (SVG/PNG). Empty string = text-only header. */
   logoUrl: string;
   /** Light or dark color scheme. */
@@ -39,6 +44,12 @@ export const config: EventLensConfig = {
   eventYear: process.env.NEXT_PUBLIC_EVENT_YEAR || "2026",
   eventTagline:
     process.env.NEXT_PUBLIC_EVENT_TAGLINE || "Найдите себя на снимках мероприятия",
+  eventDescription:
+    process.env.NEXT_PUBLIC_EVENT_DESCRIPTION ||
+    "Сделайте селфи — найдём ваши фото. Или просто листайте галерею по альбомам",
+  heroStatement:
+    process.env.NEXT_PUBLIC_HERO_STATEMENT ||
+    "Вся съёмка с мероприятия. И ваши кадры в ней",
   logoUrl: process.env.NEXT_PUBLIC_LOGO_URL || "",
   theme: process.env.NEXT_PUBLIC_THEME === "light" ? "light" : "dark",
   primaryColor: hex(process.env.NEXT_PUBLIC_PRIMARY_COLOR, "#00ff41"),
