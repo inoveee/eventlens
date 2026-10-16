@@ -158,6 +158,25 @@ export default function PhotoGallery() {
     handleClearMatch: handleClearMatchWithFilterReset,
   }), [search, handleMatchResultsWithFilterReset, handleClearMatchWithFilterReset]);
 
+  // Главная без чипов (нет реальных папок/тегов): строка сверху не нужна —
+  // в ней одиноко «прилипала» бы кнопка «Выбрать». Она уходит в шапку
+  // секции (Избранное либо Общий альбом), к заголовку по левому краю.
+  const hasChips = realFolders.length > 0 || photos.tags.length > 0;
+  const inlineSelect = isHome && !hasChips;
+  const showTabsRow = !isHome || hasChips;
+  const selectToggleBtn = (
+    <button
+      onClick={selection.toggleSelectMode}
+      className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all ${
+        selection.selectMode
+          ? "bg-[var(--el-primary)] text-[var(--el-on-primary)] shadow-[0_6px_20px_var(--el-glow-primary-25)]"
+          : "border border-[var(--el-primary-22)] bg-[var(--el-surface)] text-[var(--el-t-primary-99)] hover:border-[var(--el-primary-44)] hover:text-[var(--el-t-primary)]"
+      }`}
+    >
+      {selection.selectMode ? "Готово" : "Выбрать"}
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-[var(--el-bg)]">
       <GalleryHeader
@@ -167,7 +186,7 @@ export default function PhotoGallery() {
         totalPhotos={photos.allPhotos.length}
       />
 
-      {!photos.loading && !photos.error && photos.allPhotos.length > 0 && (
+      {!photos.loading && !photos.error && photos.allPhotos.length > 0 && showTabsRow && (
         <div className="mx-auto max-w-5xl px-3 md:px-4 pb-2 md:pb-4 space-y-1.5 md:space-y-2">
           {/* Одна линия: чипы альбомов слева, «Выбрать» справа */}
           <div className="flex items-center justify-between gap-3">
@@ -180,16 +199,7 @@ export default function PhotoGallery() {
                 folderCounts={filters.folderCounts}
               />
             </div>
-            <button
-              onClick={selection.toggleSelectMode}
-              className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all ${
-                selection.selectMode
-                  ? "bg-[var(--el-primary)] text-[var(--el-on-primary)] shadow-[0_6px_20px_var(--el-glow-primary-25)]"
-                  : "border border-[var(--el-primary-22)] bg-[var(--el-surface)] text-[var(--el-t-primary-99)] hover:border-[var(--el-primary-44)] hover:text-[var(--el-t-primary)]"
-              }`}
-            >
-              {selection.selectMode ? "Готово" : "Выбрать"}
-            </button>
+            {!inlineSelect && selectToggleBtn}
           </div>
           <TagTabs
             tags={photos.tags}
@@ -210,7 +220,10 @@ export default function PhotoGallery() {
         />
       )}
 
-      <main id="gallery" className="mx-auto max-w-5xl px-3 pb-16 md:px-4 md:pb-12">
+      <main
+        id="gallery"
+        className={`mx-auto max-w-5xl px-3 pb-16 md:px-4 md:pb-12${showTabsRow ? "" : " pt-6 md:pt-8"}`}
+      >
         {photos.loading && <GridSkeleton />}
 
         {photos.error && (
@@ -230,6 +243,11 @@ export default function PhotoGallery() {
               hotPhotoIds={stats.hotPhotoIds}
               onPhotoClick={handlePhotoClick}
               onToggleSelect={selection.togglePhoto}
+              actions={
+                inlineSelect && favoritePhotos.length > 0
+                  ? selectToggleBtn
+                  : undefined
+              }
             />
             <AlbumGrid
               folders={realFolders}
@@ -246,6 +264,11 @@ export default function PhotoGallery() {
               onPhotoClick={handlePhotoClick}
               onToggleSelect={selection.togglePhoto}
               onBrowseAll={() => filters.setBrowseAll(true)}
+              actions={
+                inlineSelect && favoritePhotos.length === 0
+                  ? selectToggleBtn
+                  : undefined
+              }
             />
           </>
         )}

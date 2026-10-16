@@ -1,6 +1,7 @@
 // @TheTechMargin 2026
 "use client";
 
+import type { ReactNode } from "react";
 import { PhotoRecord } from "@/lib/types";
 import PhotoCard from "./PhotoCard";
 import { config } from "@/lib/config";
@@ -14,6 +15,8 @@ interface HeroSectionProps {
   onPhotoClick: (photo: PhotoRecord) => void;
   onToggleSelect: (id: string) => void;
   onBrowseAll: () => void;
+  /** Действия в шапке секции справа (например, кнопка «Выбрать»). */
+  actions?: ReactNode;
 }
 
 /** Общий альбом на главной: заголовок = название альбома организатора
@@ -28,18 +31,22 @@ export default function HeroSection({
   onPhotoClick,
   onToggleSelect,
   onBrowseAll,
+  actions,
 }: HeroSectionProps) {
   if (photos.length === 0) return null;
 
   return (
     <section>
-      <div className="mb-3 flex items-baseline gap-3 md:mb-5">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--el-t-primary)]">
-          {config.defaultAlbumName}
-        </h2>
-        <span className="text-xs text-[var(--el-text-dim)]">
-          {totalCount} фото
-        </span>
+      <div className="mb-3 flex items-center justify-between gap-3 md:mb-5">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--el-t-primary)]">
+            {config.defaultAlbumName}
+          </h2>
+          <span className="text-xs text-[var(--el-text-dim)]">
+            {totalCount} фото
+          </span>
+        </div>
+        {actions}
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {photos.map((photo, index) => (
