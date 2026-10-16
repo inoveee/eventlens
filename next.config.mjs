@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 // Force cache invalidation
 const nextConfig = {
+  // Круглая кнопка с «N» в левом нижнем углу — индикатор dev-режима Next.
+  // В проде её нет, но локальные демо она засоряет — отключена.
+  devIndicators: false,
   images: {
     remotePatterns: [
       {

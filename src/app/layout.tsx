@@ -17,9 +17,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: `${eventName} — Найдите свои фото`,
   description: eventTagline,
-  icons: {
-    icon: "/favicon.svg",
-  },
+  // Иконки (icon.png / apple-icon.png) подхватываются из src/app автоматически
   openGraph: {
     title: `${eventName} — Найдите свои фото`,
     description: eventTagline,

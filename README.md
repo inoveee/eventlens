@@ -153,6 +153,7 @@ Fill in the values:
 | `NEXT_PUBLIC_EVENT_TAGLINE` | No | Subtitle in the page title and on the login screen |
 | `NEXT_PUBLIC_HERO_STATEMENT` | No | Two-tone hero line: first sentence light, the rest in the event color (default: `Вся съёмка с мероприятия. И ваши кадры в ней`) |
 | `NEXT_PUBLIC_EVENT_DESCRIPTION` | No | Supporting line under the hero statement (default: `Сделайте селфи — найдём ваши фото. Или просто листайте галерею по альбомам`) |
+| `NEXT_PUBLIC_DEFAULT_ALBUM_NAME` | No | Title of the general album on the home grid (default: `Общий альбом`) |
 | `NEXT_PUBLIC_EVENT_YEAR` | No | Year shown next to the event name |
 | `NEXT_PUBLIC_LOGO_URL` | No | Organizer logo (SVG/PNG). Empty = text-only header |
 | `NEXT_PUBLIC_THEME` | No | `dark` (default) or `light` color scheme |

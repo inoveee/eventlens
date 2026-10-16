@@ -34,8 +34,9 @@ export default function FloatingActionBar({
         <button
           onClick={onClearSelection}
           className="shrink-0 border border-[var(--el-primary-22)] px-4 py-2 md:py-1.5 text-xs font-medium text-[var(--el-t-primary-99)] hover:border-[var(--el-primary-44)] hover:text-[var(--el-t-primary)] transition-all"
+          title="Снять выбор"
         >
-          Отмена
+          Очистить
         </button>
 
         <span className="text-xs tabular-nums text-[var(--el-text-dim)] whitespace-nowrap">

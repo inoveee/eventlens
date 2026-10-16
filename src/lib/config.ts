@@ -16,6 +16,9 @@ export interface EventLensConfig {
   /** Two-tone hero statement: the first sentence is drawn light, the rest
    *  after it in the event accent color (AFD-style). */
   heroStatement: string;
+  /** Title of the default (general) album shown on the home grid.
+   *  The organizer can name it freely, e.g. "Гонки — 12 мая 2026". */
+  defaultAlbumName: string;
   /** Organizer logo URL (SVG/PNG). Empty string = text-only header. */
   logoUrl: string;
   /** Light or dark color scheme. */
@@ -50,6 +53,8 @@ export const config: EventLensConfig = {
   heroStatement:
     process.env.NEXT_PUBLIC_HERO_STATEMENT ||
     "Вся съёмка с мероприятия. И ваши кадры в ней",
+  defaultAlbumName:
+    process.env.NEXT_PUBLIC_DEFAULT_ALBUM_NAME || "Общий альбом",
   logoUrl: process.env.NEXT_PUBLIC_LOGO_URL || "",
   theme: process.env.NEXT_PUBLIC_THEME === "light" ? "light" : "dark",
   primaryColor: hex(process.env.NEXT_PUBLIC_PRIMARY_COLOR, "#00ff41"),

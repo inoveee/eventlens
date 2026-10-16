@@ -1,7 +1,7 @@
 // @TheTechMargin 2026
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { PhotoRecord } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
@@ -20,8 +20,7 @@ import { useUrlSync } from "@/hooks/useUrlSync";
 import GalleryHeader from "./GalleryHeader";
 import FolderTabs from "./FolderTabs";
 import TagTabs from "./TagTabs";
-import FilterSortBar from "./FilterSortBar";
-import FilterSortSheet from "./FilterSortSheet";
+import FavoritesSection from "./FavoritesSection";
 import AlbumGrid from "./AlbumGrid";
 import HeroSection from "./HeroSection";
 import SearchStatus from "./SearchStatus";
@@ -87,6 +86,44 @@ export default function PhotoGallery() {
   const visiblePhotos = filters.filteredPhotos.slice(0, visibleCount);
   const isHome = !filters.isSearchActive;
 
+  // Корневые папки (Root/ALL) — не альбомы, в чипы и грид альбомов не идут
+  const realFolders = useMemo(
+    () => photos.folders.filter((f) => f && !/^(root|all)$/i.test(f)),
+    [photos.folders],
+  );
+
+  // Избранное — фото, выбранные самим участником в режиме «Выбрать»
+  const favoritePhotos = useMemo(
+    () => photos.allPhotos.filter((p) => selection.selectedIds.has(p.id)),
+    [photos.allPhotos, selection.selectedIds],
+  );
+
+  // Выбор альбома. «Все» при пустом поиске — возврат на главную
+  // (в т.ч. из режима «Смотреть все фото»).
+  const { setActiveFolder, setBrowseAll } = filters;
+  const { debouncedQuery, matchResults } = search;
+  const handleFolderSelect = useCallback(
+    (folder: string) => {
+      setActiveFolder(folder);
+      if (folder === "" && !debouncedQuery && matchResults === null) {
+        setBrowseAll(false);
+      }
+    },
+    [setActiveFolder, setBrowseAll, debouncedQuery, matchResults],
+  );
+
+  // Страховка: сохранённый в localStorage альбом (например, «Root» из
+  // старой версии) больше не существует как чип — сбрасываем его.
+  useEffect(() => {
+    if (
+      !photos.loading &&
+      filters.activeFolder &&
+      !realFolders.includes(filters.activeFolder)
+    ) {
+      handleFolderSelect("");
+    }
+  }, [photos.loading, filters.activeFolder, realFolders, handleFolderSelect]);
+
   const heroPhotos = useMemo(() => {
     if (filters.sortOrder === "shuffle") return photos.shuffledPhotos.slice(0, 8);
     const sorted = [...photos.allPhotos];
@@ -128,44 +165,21 @@ export default function PhotoGallery() {
         onRefresh={photos.refresh}
         lastUpdated={photos.lastUpdated}
         totalPhotos={photos.allPhotos.length}
-        activeFolder={filters.activeFolder}
-        activeTag={filters.activeTag}
-        activeType={filters.activeType}
-        onClearActiveFolder={() => filters.setActiveFolder("")}
-        onClearActiveTag={() => filters.setActiveTag(null)}
       />
 
       {!photos.loading && !photos.error && photos.allPhotos.length > 0 && (
         <div className="mx-auto max-w-5xl px-3 md:px-4 pb-2 md:pb-4 space-y-1.5 md:space-y-2">
-          <FolderTabs
-            folders={photos.folders}
-            active={filters.activeFolder}
-            onSelect={filters.setActiveFolder}
-            totalCount={photos.allPhotos.length}
-            folderCounts={filters.folderCounts}
-          />
-          <TagTabs
-            tags={photos.tags}
-            active={filters.activeTag}
-            onSelect={filters.setActiveTag}
-            tagCounts={filters.tagCounts}
-          />
-          <div className="flex items-center justify-between gap-2">
-            <FilterSortBar filters={filters}>
-              <FilterSortSheet
-                sortOrder={filters.sortOrder}
-                onSortChange={filters.setSortOrder}
-                activeType={filters.activeType}
-                onTypeChange={filters.setActiveType}
-                minFaces={filters.minFaces}
-                onMinFacesChange={filters.setMinFaces}
-                folders={photos.folders}
-                folderCounts={filters.folderCounts}
-                activeFolder={filters.activeFolder}
-                onFolderChange={filters.setActiveFolder}
+          {/* Одна линия: чипы альбомов слева, «Выбрать» справа */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <FolderTabs
+                folders={realFolders}
+                active={filters.activeFolder}
+                onSelect={handleFolderSelect}
                 totalCount={photos.allPhotos.length}
+                folderCounts={filters.folderCounts}
               />
-            </FilterSortBar>
+            </div>
             <button
               onClick={selection.toggleSelectMode}
               className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all ${
@@ -177,6 +191,12 @@ export default function PhotoGallery() {
               {selection.selectMode ? "Готово" : "Выбрать"}
             </button>
           </div>
+          <TagTabs
+            tags={photos.tags}
+            active={filters.activeTag}
+            onSelect={filters.setActiveTag}
+            tagCounts={filters.tagCounts}
+          />
         </div>
       )}
 
@@ -203,16 +223,23 @@ export default function PhotoGallery() {
 
         {!photos.loading && !photos.error && photos.allPhotos.length > 0 && isHome && (
           <>
+            <FavoritesSection
+              photos={favoritePhotos}
+              selectMode={selection.selectMode}
+              selectedIds={selection.selectedIds}
+              hotPhotoIds={stats.hotPhotoIds}
+              onPhotoClick={handlePhotoClick}
+              onToggleSelect={selection.togglePhoto}
+            />
             <AlbumGrid
-              folders={photos.folders}
+              folders={realFolders}
               photos={photos.shuffledPhotos}
               folderCounts={filters.folderCounts}
-              onSelect={filters.setActiveFolder}
+              onSelect={handleFolderSelect}
             />
             <HeroSection
               photos={heroPhotos}
               totalCount={photos.allPhotos.length}
-              sortOrder={filters.sortOrder}
               selectMode={selection.selectMode}
               selectedIds={selection.selectedIds}
               hotPhotoIds={stats.hotPhotoIds}

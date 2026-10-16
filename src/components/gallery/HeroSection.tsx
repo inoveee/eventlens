@@ -3,12 +3,11 @@
 
 import { PhotoRecord } from "@/lib/types";
 import PhotoCard from "./PhotoCard";
-import type { SortOrder } from "@/hooks/useFilters";
+import { config } from "@/lib/config";
 
 interface HeroSectionProps {
   photos: PhotoRecord[];
   totalCount: number;
-  sortOrder: SortOrder;
   selectMode: boolean;
   selectedIds: Set<string>;
   hotPhotoIds: Set<string>;
@@ -17,10 +16,12 @@ interface HeroSectionProps {
   onBrowseAll: () => void;
 }
 
+/** Общий альбом на главной: заголовок = название альбома организатора
+ *  (NEXT_PUBLIC_DEFAULT_ALBUM_NAME), превью-сетка и переход в полный
+ *  просмотр. */
 export default function HeroSection({
   photos,
   totalCount,
-  sortOrder,
   selectMode,
   selectedIds,
   hotPhotoIds,
@@ -30,21 +31,14 @@ export default function HeroSection({
 }: HeroSectionProps) {
   if (photos.length === 0) return null;
 
-  const sortLabel =
-    sortOrder === "shuffle"
-      ? "Избранное"
-      : sortOrder === "name-asc"
-        ? "По имени А→Я"
-        : "По имени Я→А";
-
   return (
     <section>
       <div className="mb-3 flex items-baseline gap-3 md:mb-5">
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--el-t-primary)]">
-          {sortLabel}
+          {config.defaultAlbumName}
         </h2>
         <span className="text-xs text-[var(--el-text-dim)]">
-          {totalCount} всего
+          {totalCount} фото
         </span>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 md:grid-cols-3 lg:grid-cols-4">

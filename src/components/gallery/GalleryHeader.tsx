@@ -12,11 +12,6 @@ interface GalleryHeaderProps {
   onRefresh: () => void;
   lastUpdated: string;
   totalPhotos: number;
-  activeFolder: string;
-  activeTag: string | null;
-  activeType: "all" | "photo" | "video";
-  onClearActiveFolder: () => void;
-  onClearActiveTag: () => void;
 }
 
 /** AFD-референс: тёмная hero-секция с радиальными глоу от бренд-цветов,
@@ -27,9 +22,6 @@ export default function GalleryHeader({
   search,
   lastUpdated,
   totalPhotos,
-  activeFolder,
-  activeTag,
-  activeType,
 }: GalleryHeaderProps) {
   const handleLogout = async () => {
     try {
@@ -38,18 +30,9 @@ export default function GalleryHeader({
     } catch {}
   };
 
-  const triggerFaceSearch = (camera = false) => {
-    const id = camera ? "el-camera-input" : "el-face-input";
-    document.getElementById(id)?.click();
+  const triggerFaceSearch = () => {
+    document.getElementById("el-face-input")?.click();
   };
-
-  const focusSearch = () => {
-    const el = document.getElementById("el-search-input");
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
-    (el as HTMLInputElement | null)?.focus({ preventScroll: true });
-  };
-
-  const filtersActive = !!(activeFolder || activeTag || activeType !== "all");
 
   // Первая фраза — светлая, хвост после точки — в акцентном цвете ивента
   const { first: statementFirst, rest: statementRest } = splitFirstSentence(
@@ -81,9 +64,6 @@ export default function GalleryHeader({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70 backdrop-blur sm:inline-flex">
-              {totalPhotos > 0 ? `${totalPhotos} фото` : "Загрузка…"}
-            </span>
             {isRecentlyUpdated(lastUpdated) && (
               <span className="hidden items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70 backdrop-blur md:inline-flex">
                 <span
@@ -122,58 +102,11 @@ export default function GalleryHeader({
           </p>
         </div>
 
-        {/* ── Поиск + pill-кнопки ── */}
+        {/* ── Pill-кнопки действия ── */}
         <div className="mt-8 flex flex-col gap-4 md:mt-12">
-          <div className="relative w-full max-w-2xl">
-            <svg
-              className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              id="el-search-input"
-              type="text"
-              value={search.searchInput}
-              onChange={(e) => search.setSearchInput(e.target.value)}
-              placeholder="Поиск по фото, людям, сценам…"
-              className="w-full rounded-full border border-white/15 bg-white/10 py-3.5 pl-12 pr-12 text-base text-white backdrop-blur-xl transition-colors placeholder:text-white/45 focus:border-white/40 focus:bg-white/15 md:py-4"
-              aria-label="Поиск фото"
-              enterKeyHint="search"
-            />
-            {search.searchInput && (
-              <button
-                onClick={() => search.setSearchInput("")}
-                className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Очистить поиск"
-              >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            )}
-          </div>
-
           <div className="flex flex-wrap items-center gap-2.5 md:gap-3">
             <button
-              onClick={() => triggerFaceSearch(false)}
+              onClick={triggerFaceSearch}
               className="group inline-flex items-center gap-3 py-2 pl-5 pr-2 text-sm font-semibold text-[var(--el-on-primary)]"
               style={{ background: "var(--el-primary)" }}
             >
@@ -195,43 +128,31 @@ export default function GalleryHeader({
               </span>
             </button>
 
-            <button
-              onClick={() => triggerFaceSearch(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white md:hidden"
-            >
-              Камера
-            </button>
-
-            <button
-              onClick={focusSearch}
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              Поиск по описанию
-            </button>
-
-            <span className="hidden text-xs text-white/45 sm:inline">
-              {totalPhotos > 0 ? `${totalPhotos} фото в галерее` : ""}
+            <span className="inline-flex rounded-full bg-white/10 px-3.5 py-2 text-xs text-white/70 backdrop-blur">
+              {totalPhotos > 0 ? `${totalPhotos} фото` : "Загрузка…"}
             </span>
           </div>
-        </div>
 
-        {/* ── Активные фильтры ── */}
-        {filtersActive && (
-          <p className="mt-4 inline-flex rounded-full bg-white/10 px-4 py-1.5 text-xs text-white/70 backdrop-blur">
-            Фильтры:{" "}
-            {[
-              activeFolder ? `«${activeFolder}»` : "",
-              activeTag ? `#${activeTag}` : "",
-              activeType !== "all"
-                ? activeType === "video"
-                  ? "только видео"
-                  : "только фото"
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+          {/* Приватность селфи — на видном месте, сразу под кнопками */}
+          <p className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs leading-relaxed text-white/70 backdrop-blur md:text-[13px]">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0"
+              aria-hidden="true"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Селфи используется только для поиска — фото не сохраняем
           </p>
-        )}
+        </div>
 
         {/* Управление поиском по лицу: скрытые input'ы здесь же,
             кнопки-действия (отмена/сброс/превью) показываются PhotoUpload */}

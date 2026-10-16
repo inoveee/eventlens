@@ -18,11 +18,10 @@ export function useSelection(): UseSelectionReturn {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Выход из режима выбора НЕ сбрасывает выбранные фото — они живут
+  // как «Избранное», пока пользователь не нажмёт «Очистить» (или Escape).
   const toggleSelectMode = useCallback(() => {
-    setSelectMode((prev) => {
-      if (prev) setSelectedIds(new Set());
-      return !prev;
-    });
+    setSelectMode((prev) => !prev);
   }, []);
 
   const togglePhoto = useCallback((id: string) => {
