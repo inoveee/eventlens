@@ -1,9 +1,9 @@
 // @TheTechMargin 2026
-// Загрузочный (сплэш) экран входа в админку: по центру иконка noveee
+// Загрузочный (сплэш) экран стартовой страницы: по центру иконка noveee
 // с вращающимся оранжевым кольцом, на фоне — бесконечные колонки
 // сообщений в стиле iMessage (жалобы участников на поиск фото).
 // Показывается первые секунды после открытия страницы, затем плавно
-// растворяется (см. AdminLogin), открывая форму входа.
+// растворяется (см. SplashGate), открывая страницу входа.
 "use client";
 
 import Image from "next/image";
@@ -223,7 +223,7 @@ function FeedColumn({
   );
 }
 
-export default function AdminSplash({ fading = false }: { fading?: boolean }) {
+export default function SplashScreen({ fading = false }: { fading?: boolean }) {
   return (
     <div
       className={`fixed inset-0 z-50 overflow-hidden bg-[var(--el-bg)] transition-opacity duration-700 ${

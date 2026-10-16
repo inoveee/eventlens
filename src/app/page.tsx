@@ -6,6 +6,7 @@
 import type { Metadata } from "next";
 import { OrganizerAuthProvider } from "@/hooks/organizer/OrganizerContext";
 import ProjectsScreen from "@/app/organizer/components/ProjectsScreen";
+import SplashGate from "@/components/SplashGate";
 
 export const metadata: Metadata = {
   title: "Мои проекты — noveee.me",
@@ -16,7 +17,9 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <OrganizerAuthProvider>
-      <ProjectsScreen />
+      <SplashGate>
+        <ProjectsScreen />
+      </SplashGate>
     </OrganizerAuthProvider>
   );
 }
