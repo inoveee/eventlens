@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { PhotoRecord } from "@/lib/types";
 import PhotoCard from "./PhotoCard";
 import { config } from "@/lib/config";
+import { useEventSettings } from "@/components/EventSettingsProvider";
 
 interface HeroSectionProps {
   photos: PhotoRecord[];
@@ -33,14 +34,18 @@ export default function HeroSection({
   onBrowseAll,
   actions,
 }: HeroSectionProps) {
+  const { settings } = useEventSettings();
+
   if (photos.length === 0) return null;
+
+  const albumName = settings.text.albumName || config.defaultAlbumName;
 
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3 md:mb-5">
         <div className="flex items-baseline gap-3">
           <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--el-t-primary)]">
-            {config.defaultAlbumName}
+            {albumName}
           </h2>
           <span className="text-xs text-[var(--el-text-dim)]">
             {totalCount} фото

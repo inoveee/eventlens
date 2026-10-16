@@ -95,11 +95,28 @@ async function fetchSupabaseMetadata(): Promise<Map<string, PhotoMetadata>> {
   }
 }
 
-export async function fetchPhotosWithMetadata(): Promise<PhotoRecord[]> {
+/** Источник фото, который выбрал организатор (или настройки окружения).
+ *  Резолвится в API-роуте — здесь модуль остаётся клиентски-безопасным. */
+export interface PhotoSource {
+  provider: "yandex" | "drive";
+  value: string;
+}
+
+export async function fetchPhotosWithMetadata(
+  source?: PhotoSource,
+): Promise<PhotoRecord[]> {
+  // Источник фото: папка, подключённая организатором в админке,
+  // либо настройки окружения проекта (см. eventSettingsStore).
+  const resolved: PhotoSource =
+    source ??
+    (config.photoSource === "yandex"
+      ? { provider: "yandex", value: config.yandexDiskUrl }
+      : { provider: "drive", value: config.driveFolderId });
+
   const drivePhotos =
-    config.photoSource === "yandex"
-      ? await fetchPhotosFromYandexFolder()
-      : await fetchPhotosFromDriveFolder();
+    resolved.provider === "yandex"
+      ? await fetchPhotosFromYandexFolder(resolved.value)
+      : await fetchPhotosFromDriveFolder(resolved.value);
 
   const metadata = await fetchSupabaseMetadata();
   if (metadata.size === 0) return drivePhotos;
@@ -128,8 +145,11 @@ export function extractDriveFileId(driveUrl: string): string {
   return "";
 }
 
-export async function fetchPhotosFromDriveFolder(): Promise<PhotoRecord[]> {
-  const { driveFolderId, googleApiKey } = config;
+export async function fetchPhotosFromDriveFolder(
+  folderIdOverride?: string,
+): Promise<PhotoRecord[]> {
+  const driveFolderId = folderIdOverride || config.driveFolderId;
+  const { googleApiKey } = config;
   const useServiceAccount = isServiceAccountConfigured();
 
   console.log("[v0] GATE A: fetchPhotos - SA:", useServiceAccount, "folder:", !!driveFolderId, "apiKey:", !!googleApiKey);
@@ -206,8 +226,10 @@ function yandexFilesToPhotos(
   }));
 }
 
-export async function fetchPhotosFromYandexFolder(): Promise<PhotoRecord[]> {
-  const { yandexDiskUrl } = config;
+export async function fetchPhotosFromYandexFolder(
+  urlOverride?: string,
+): Promise<PhotoRecord[]> {
+  const yandexDiskUrl = urlOverride || config.yandexDiskUrl;
   if (!yandexDiskUrl) return [];
 
   try {

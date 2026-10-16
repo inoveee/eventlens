@@ -3,6 +3,7 @@
 
 import { config } from "@/lib/config";
 import { isRecentlyUpdated, splitFirstSentence, timeAgo } from "@/lib/utils";
+import { useEventSettings } from "@/components/EventSettingsProvider";
 import PhotoUpload from "@/components/PhotoUpload";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 import type { UseSearchReturn } from "@/hooks/useSearch";
@@ -24,6 +25,10 @@ export default function GalleryHeader({
   lastUpdated,
   totalPhotos,
 }: GalleryHeaderProps) {
+  // Опубликованные настройки организатора (иначе — значения окружения).
+  const { settings } = useEventSettings();
+  const { text: eventText, branding } = settings;
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -37,7 +42,7 @@ export default function GalleryHeader({
 
   // Первая фраза — светлая, хвост после точки — в акцентном цвете ивента
   const { first: statementFirst, rest: statementRest } = splitFirstSentence(
-    config.heroStatement,
+    eventText.statement,
   );
 
   return (
@@ -52,13 +57,13 @@ export default function GalleryHeader({
             />
           </div>
           <div className="flex min-w-0 items-center gap-3">
-            {config.logoUrl ? (
+            {branding.logo ? (
               /* Organizer logo — falls back to the event name if the
                  image fails to load. */
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={config.logoUrl}
-                alt={config.eventName}
+                src={branding.logo}
+                alt={eventText.name}
                 className="h-9 w-auto object-contain md:h-12"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -76,7 +81,7 @@ export default function GalleryHeader({
 
           <div className="flex shrink-0 items-center gap-2">
             {isRecentlyUpdated(lastUpdated) && (
-              <span className="hidden items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70 backdrop-blur md:inline-flex">
+              <span className="hidden items-center gap-1.5 rounded-full bg-[var(--el-hero-chip-bg)] px-3 py-1.5 text-xs text-[var(--el-hero-chip-text)] backdrop-blur md:inline-flex">
                 <span
                   className="h-1.5 w-1.5 animate-pulse rounded-full"
                   style={{ background: "var(--el-primary)" }}
@@ -86,7 +91,7 @@ export default function GalleryHeader({
             )}
             <button
               onClick={handleLogout}
-              className="rounded-full border border-white/25 px-3.5 py-1.5 text-xs text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+              className="rounded-full border border-[var(--el-hero-border)] px-3.5 py-1.5 text-xs text-[var(--el-hero-chip-text)] transition-colors hover:bg-[var(--el-hero-chip-bg)] hover:text-[var(--el-hero-text)]"
               title="Выйти"
             >
               Выйти
@@ -96,10 +101,10 @@ export default function GalleryHeader({
 
         {/* ── Заголовок: огромный uppercase + двухцветная фраза + пояснение ── */}
         <div className="mt-10 max-w-4xl md:mt-20">
-          <h1 className="text-[clamp(2.5rem,10vw,6.5rem)] font-black uppercase leading-[0.92] tracking-[-0.02em] text-white">
-            {config.eventName}
+          <h1 className="text-[clamp(2.5rem,10vw,6.5rem)] font-black uppercase leading-[0.92] tracking-[-0.02em] text-[var(--el-hero-text)]">
+            {eventText.name}
           </h1>
-          <p className="mt-5 text-xl font-semibold leading-snug tracking-[-0.01em] text-white text-balance md:mt-7 md:text-4xl">
+          <p className="mt-5 text-xl font-semibold leading-snug tracking-[-0.01em] text-[var(--el-hero-text)] text-balance md:mt-7 md:text-4xl">
             {statementFirst}
             {statementRest && (
               <>
@@ -108,8 +113,8 @@ export default function GalleryHeader({
               </>
             )}
           </p>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/55 md:mt-4 md:text-lg">
-            {config.eventDescription}
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--el-hero-dim)] md:mt-4 md:text-lg">
+            {eventText.description}
           </p>
         </div>
 
@@ -139,13 +144,13 @@ export default function GalleryHeader({
               </span>
             </button>
 
-            <span className="inline-flex rounded-full bg-white/10 px-3.5 py-2 text-xs text-white/70 backdrop-blur">
+            <span className="inline-flex rounded-full bg-[var(--el-hero-chip-bg)] px-3.5 py-2 text-xs text-[var(--el-hero-chip-text)] backdrop-blur">
               {totalPhotos > 0 ? `${totalPhotos} фото` : "Загрузка…"}
             </span>
           </div>
 
           {/* Приватность селфи — на видном месте, сразу под кнопками */}
-          <p className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs leading-relaxed text-white/70 backdrop-blur md:text-[13px]">
+          <p className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--el-hero-chip-bg)] px-4 py-2 text-xs leading-relaxed text-[var(--el-hero-chip-text)] backdrop-blur md:text-[13px]">
             <svg
               width="13"
               height="13"

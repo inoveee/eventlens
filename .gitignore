@@ -49,6 +49,9 @@ EVENTLENS-MASTER-PLAN.md
 # vercel
 .vercel
 
+# локальное хранилище настроек организатора (без Supabase)
+.eventlens/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

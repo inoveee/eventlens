@@ -347,17 +347,28 @@ input:focus {
    ═══════════════════════════════════════════════════ */
 
 /* ── Hero (AFD-референс): всегда тёмная секция с
-      радиальными глоу от бренд-цветов ── */
+      радиальными глоу от бренд-цветов.
+      Переопределяется организатором через --el-hero-* (см. раздел 9):
+      --el-hero-bg    фон (цвет / градиент / картинка); не задан — стандарт
+      --el-hero-scrim затемнение поверх фона (читаемость текста)
+      --el-hero-text  контрастный цвет текста и иконок ── */
 
 .el-hero {
   position: relative;
   isolation: isolate;
-  color: #ffffff;
+  color: var(--el-hero-text, #ffffff);
   background:
-    radial-gradient(110% 95% at 6% -15%, color-mix(in srgb, var(--el-primary) 42%, transparent) 0%, transparent 58%),
-    radial-gradient(85% 80% at 97% -5%, color-mix(in srgb, var(--el-accent) 32%, transparent) 0%, transparent 62%),
-    radial-gradient(70% 55% at 50% 115%, color-mix(in srgb, var(--el-primary) 20%, transparent) 0%, transparent 72%),
-    #0a0a0e;
+    var(--el-hero-scrim, linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0))),
+    var(
+      --el-hero-bg,
+      radial-gradient(110% 95% at 6% -15%, color-mix(in srgb, var(--el-primary) 42%, transparent) 0%, transparent 58%),
+      radial-gradient(85% 80% at 97% -5%, color-mix(in srgb, var(--el-accent) 32%, transparent) 0%, transparent 62%),
+      radial-gradient(70% 55% at 50% 115%, color-mix(in srgb, var(--el-primary) 20%, transparent) 0%, transparent 72%),
+      #0a0a0e
+    );
+  background-size: var(--el-hero-size, auto);
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Тонкая световая линия внизу hero */
@@ -515,3 +526,231 @@ input:focus {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   9. ORGANIZER PANEL (/organizer)
+   Светлая панель в эстетике Apple/Linear: нейтральные
+   поверхности, тонкие границы, аккуратная типографика.
+   Живёт внутри .org-shell и не зависит от галерейной темы.
+   ═══════════════════════════════════════════════════ */
+
+.org-shell {
+  color-scheme: light;
+  --org-bg: #f6f6f7;
+  --org-panel: #ffffff;
+  --org-border: #e7e7ec;
+  --org-border-strong: #dcdce3;
+  --org-text: #17171a;
+  --org-dim: #63636d;
+  --org-faint: #9a9aa4;
+  --org-hover: #f1f1f4;
+  --org-ok: #15803d;
+  --org-ok-bg: #e8f6ec;
+  --org-warn: #a35a06;
+  --org-warn-bg: #fbf1e2;
+  --org-err: #c62a22;
+  --org-err-bg: #fbeceb;
+  background: var(--org-bg);
+  color: var(--org-text);
+}
+
+.org-shell input::placeholder {
+  color: var(--org-faint);
+}
+
+.org-shell input,
+.org-shell select,
+.org-shell textarea {
+  border-radius: 12px;
+}
+
+.org-card {
+  background: var(--org-panel);
+  border: 1px solid var(--org-border);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(16, 16, 20, 0.04);
+}
+
+.org-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--org-text);
+}
+
+.org-hint {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--org-dim);
+}
+
+.org-input,
+.org-select,
+.org-textarea {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--org-border-strong);
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--org-text);
+  transition: border-color 0.15s var(--el-ease), box-shadow 0.15s var(--el-ease);
+}
+
+.org-textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+.org-input:focus,
+.org-select:focus,
+.org-textarea:focus {
+  outline: none;
+  border-color: #a6a6b2;
+  box-shadow: 0 0 0 3px rgba(23, 23, 26, 0.07);
+}
+
+.org-input[aria-invalid="true"] {
+  border-color: var(--org-err);
+}
+
+.org-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: 8px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.org-btn-primary {
+  background: var(--org-text);
+  color: #ffffff;
+}
+.org-btn-primary:hover {
+  background: #000000;
+}
+
+.org-btn-secondary {
+  background: #ffffff;
+  color: var(--org-text);
+  border: 1px solid var(--org-border-strong);
+}
+.org-btn-secondary:hover {
+  background: var(--org-hover);
+}
+
+.org-btn-ghost {
+  color: var(--org-dim);
+  padding: 8px 12px;
+}
+.org-btn-ghost:hover {
+  background: var(--org-hover);
+  color: var(--org-text);
+}
+
+.org-btn-danger {
+  background: #ffffff;
+  color: var(--org-err);
+  border: 1px solid #f0c8c5;
+}
+.org-btn-danger:hover {
+  background: var(--org-err-bg);
+}
+
+.org-btn:disabled {
+  opacity: 0.5;
+}
+
+.org-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--org-dim);
+  transition: background-color 0.14s var(--el-ease), color 0.14s var(--el-ease);
+}
+.org-nav-item:hover {
+  background: var(--org-hover);
+  color: var(--org-text);
+}
+.org-nav-item[data-active="true"] {
+  background: #ffffff;
+  color: var(--org-text);
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px rgba(16, 16, 20, 0.06),
+    0 0 0 1px var(--org-border);
+}
+
+.org-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+.org-pill-ok { background: var(--org-ok-bg); color: var(--org-ok); }
+.org-pill-warn { background: var(--org-warn-bg); color: var(--org-warn); }
+.org-pill-err { background: var(--org-err-bg); color: var(--org-err); }
+.org-pill-neutral { background: #ececef; color: #57575f; }
+
+.org-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: #ededf0;
+  border-radius: 999px;
+}
+.org-seg button {
+  padding: 6px 13px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--org-dim);
+  border-radius: 999px;
+}
+.org-seg button[data-active="true"] {
+  background: #ffffff;
+  color: var(--org-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 16, 20, 0.1);
+}
+
+/* ── Предпросмотр публичной страницы ── */
+
+.org-preview-frame {
+  container-type: inline-size;
+  background: var(--el-bg);
+  border: 1px solid var(--org-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 32px rgba(16, 16, 20, 0.09);
+}
+
+.org-preview-chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fafafb;
+  border-bottom: 1px solid var(--org-border);
+}
+
+.org-scroll-y {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+

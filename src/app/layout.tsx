@@ -1,7 +1,8 @@
 // @TheTechMargin 2026
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Footer from "@/components/Footer";
+import FooterGate from "@/components/FooterGate";
+import EventSettingsProvider from "@/components/EventSettingsProvider";
 import { contrastOn, normalizeHex } from "@/lib/color";
 
 const eventName = process.env.NEXT_PUBLIC_EVENT_NAME || "Фотогалерея";
@@ -94,10 +95,12 @@ export default function RootLayout({
         <style dangerouslySetInnerHTML={{ __html: brandTokens }} />
       </head>
       <body className="antialiased bg-[var(--el-bg)] text-[var(--el-text)] flex flex-col min-h-screen">
-        <div className="flex-1">
-          {children}
-        </div>
-        <Footer />
+        <EventSettingsProvider>
+          <div className="flex-1">
+            {children}
+          </div>
+        </EventSettingsProvider>
+        <FooterGate />
       </body>
     </html>
   );

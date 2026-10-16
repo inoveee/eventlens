@@ -1,6 +1,7 @@
 // @TheTechMargin 2026
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPhotosWithMetadata, getFolders, getTags } from "@/lib/photos";
+import { resolvePhotoSource } from "@/lib/eventSettingsStore";
 
 export const revalidate = 30;
 
@@ -13,7 +14,8 @@ export async function GET(request: NextRequest) {
     const offset = Number(searchParams.get("offset")) || 0;
 
     console.log("[v0] GATE 3: calling fetchPhotosWithMetadata");
-    const allPhotos = await fetchPhotosWithMetadata();
+    const source = await resolvePhotoSource();
+    const allPhotos = await fetchPhotosWithMetadata(source);
     console.log("[v0] GATE 4: got", allPhotos.length, "photos");
     const folders = getFolders(allPhotos);
     const tags = getTags(allPhotos);
