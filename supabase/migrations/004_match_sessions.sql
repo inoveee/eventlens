@@ -11,8 +11,9 @@ CREATE TABLE IF NOT EXISTS match_sessions (
   matched_photo_ids TEXT[] DEFAULT '{}'        -- drive_file_ids of matched photos
 );
 
--- Index for time-range analytics queries
-CREATE INDEX idx_match_sessions_created ON match_sessions (created_at DESC);
+-- Index for time-range analytics queries (if not exists: schema.sql-бутстрап
+-- уже создаёт их при первичной установке на свежем проекте)
+CREATE INDEX IF NOT EXISTS idx_match_sessions_created ON match_sessions (created_at DESC);
 
 -- Index for finding sessions that matched a specific photo
-CREATE INDEX idx_match_sessions_photo_ids ON match_sessions USING GIN (matched_photo_ids);
+CREATE INDEX IF NOT EXISTS idx_match_sessions_photo_ids ON match_sessions USING GIN (matched_photo_ids);
