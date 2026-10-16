@@ -208,6 +208,9 @@ interface OrganizerContextValue {
   save: () => Promise<boolean>;
   publish: () => Promise<boolean>;
   resetBranding: () => Promise<boolean>;
+  /** Смена алиаса проекта: новый ключ — новые адреса панели и
+   *  публичной страницы. Возвращает новый ключ или бросает ошибку. */
+  changeAlias: (alias: string) => Promise<string>;
   reload: () => Promise<void>;
 
   connectPhotos: (url: string) => Promise<{ ok: boolean; error: string | null }>;
@@ -429,6 +432,29 @@ export function OrganizerProvider({
     }
   }, [projectKey, request, applyResponse, notify]);
 
+  /** Смена алиаса: сервер переименовывает ключ проекта — меняются
+   *  адреса панели и публичной страницы. Возвращает новый ключ. */
+  const changeAlias = useCallback(
+    async (alias: string): Promise<string> => {
+      setBusy(true);
+      try {
+        const res = await request("/api/event/projects", {
+          method: "POST",
+          body: JSON.stringify({ action: "alias", key: projectKey, alias }),
+        });
+        const data = (await res.json()) as { key?: string; error?: string };
+        if (!res.ok || typeof data.key !== "string") {
+          throw new Error(data.error || "Не удалось сменить алиас");
+        }
+        notify("Адрес страницы обновлён");
+        return data.key;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [projectKey, request, notify],
+  );
+
   const connectRequest = useCallback(
     async (body: Record<string, string>) => {
       setBusy(true);
@@ -513,6 +539,7 @@ export function OrganizerProvider({
       save,
       publish,
       resetBranding,
+      changeAlias,
       reload: load,
       connectPhotos,
       syncPhotos,
@@ -540,6 +567,7 @@ export function OrganizerProvider({
       save,
       publish,
       resetBranding,
+      changeAlias,
       load,
       connectPhotos,
       syncPhotos,

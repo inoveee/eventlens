@@ -13,12 +13,14 @@ import {
   isProjectKey,
 } from "@/lib/eventSettings";
 import {
+  ProjectKeyTakenError,
   ProjectNotFoundError,
   StorageUnavailableError,
   createProject,
   deleteProject,
   duplicateProject,
   listProjectSummaries,
+  rekeyProject,
   renameProject,
   storageEngine,
   updateProjectMeta,
@@ -107,6 +109,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ key });
     }
 
+    if (action === "alias") {
+      const alias =
+        typeof body.alias === "string" ? body.alias.trim().toLowerCase() : "";
+      if (!isProjectKey(alias)) {
+        return NextResponse.json(
+          {
+            error:
+              "Алиас: только латиница в нижнем регистре, цифры и дефис — например, devfest",
+          },
+          { status: 400 },
+        );
+      }
+      await rekeyProject(key, alias);
+      return NextResponse.json({ key: alias });
+    }
+
     if (action === "duplicate") {
       const created = await duplicateProject(key);
       return NextResponse.json({ key: created.key }, { status: 201 });
@@ -125,6 +143,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: "Неизвестное действие" }, { status: 400 });
   } catch (err) {
+    if (err instanceof ProjectKeyTakenError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     if (err instanceof ProjectNotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 404 });
     }

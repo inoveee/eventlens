@@ -18,6 +18,13 @@ export function useUrlSync(params: {
     if (params.search) urlParams.set("q", params.search);
     if (params.folder) urlParams.set("folder", params.folder);
     if (params.selectedPhoto) urlParams.set("photo", params.selectedPhoto.filename);
+
+    // Чужие параметры (например, preview=1 у предпросмотра) сохраняем —
+    // иначе первая же синхронизация адреса выключит предпросмотр.
+    const kept = new URLSearchParams(window.location.search);
+    for (const key of ["q", "folder", "photo"]) kept.delete(key);
+    kept.forEach((value, key) => urlParams.set(key, value));
+
     const str = urlParams.toString();
     // Пустые параметры — остаёмся на текущем адресе: публичная галерея
     // живёт на /p/<key>, а не на корневом экране организатора.

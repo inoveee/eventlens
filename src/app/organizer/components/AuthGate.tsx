@@ -1,6 +1,7 @@
 // @TheTechMargin 2026
 // Вход организатора и состояния ожидания. Общие для стартового экрана
-// «Мои проекты» и настроек проекта.
+// «Мои проекты» и настроек проекта. Фон страницы входа — картинка
+// из public/login-bg.png (класс .org-login-bg в globals.css).
 
 "use client";
 
@@ -11,8 +12,8 @@ export function LoginScreen() {
   const { secret, setSecret, login, authenticating, authError } = useOrganizerAuth();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
-      <div className="org-card w-full max-w-[380px] p-7">
+    <div className="org-login-bg flex min-h-screen flex-col items-center justify-center px-5 py-10">
+      <div className="org-card w-full max-w-[380px] p-7 shadow-[0_18px_50px_rgba(16,16,20,0.10)]">
         <div className="mb-6 flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/noveee-icon.png" alt="noveee.me" className="h-8 w-auto" />
@@ -85,8 +86,9 @@ export function LoadingScreen({ label = "Загружаем…" }: { label?: str
 export default function OrganizerAuthGate({ children }: { children: ReactNode }) {
   const { checking, authenticated } = useOrganizerAuth();
   if (checking) {
+    // Тот же фон, что и у входа, — без мигания пустого экрана.
     return (
-      <div className="org-shell">
+      <div className="org-shell org-login-bg">
         <LoadingScreen label="Проверяем вход…" />
       </div>
     );

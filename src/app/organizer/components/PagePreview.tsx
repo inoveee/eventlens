@@ -35,6 +35,11 @@ export default function PagePreview({
   const [folders, setFolders] = useState<string[]>([]);
   const { projectKey } = useOrganizer();
 
+  // Логотип организатора заменяет иконку платформы и в предпросмотре.
+  const [failedLogo, setFailedLogo] = useState<string | null>(null);
+  const logo = settings.branding.logo;
+  const showLogo = !!logo && failedLogo !== logo;
+
   useEffect(() => {
     let cancelled = false;
     fetch(withProjectParam("/api/photos?limit=8", projectKey))
@@ -113,19 +118,18 @@ export default function PagePreview({
             <div className="px-5 pb-9 pt-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2.5">
-                  {settings.branding.logo ? (
+                  {showLogo && logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={settings.branding.logo}
+                      src={logo}
                       alt={settings.text.name}
                       className="h-7 w-auto object-contain md:h-9"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
+                      onError={() => setFailedLogo(logo)}
                     />
-                  ) : null}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/noveee-icon.png" alt="noveee.me" className="h-6 w-auto md:h-8" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src="/noveee-icon.png" alt="noveee.me" className="h-6 w-auto md:h-8" />
+                  )}
                 </div>
                 <span className="shrink-0 rounded-full bg-[var(--el-hero-chip-bg)] px-2.5 py-1 text-[10px] text-[var(--el-hero-chip-text)]">
                   {photos && photos.length > 0 ? `${photos.length} фото` : "Загрузка…"}

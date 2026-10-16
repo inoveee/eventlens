@@ -312,6 +312,17 @@ input:focus {
   100% { background-position: -200% 0; }
 }
 
+/* Бесконечная лента сообщений на загрузочном экране админки */
+@keyframes splash-scroll-up {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+@keyframes splash-scroll-down {
+  0% { transform: translateY(-50%); }
+  100% { transform: translateY(0); }
+}
+
 /* ═══════════════════════════════════════════════════
    4. ANIMATION CLASSES
    ═══════════════════════════════════════════════════ */
@@ -339,6 +350,22 @@ input:focus {
 
 .animate-slide-up {
   animation: slide-up 0.32s var(--el-ease) forwards;
+}
+
+/* ── Загрузочный экран админки: колонки сообщений ── */
+
+.splash-col {
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.splash-col-up {
+  animation-name: splash-scroll-up;
+}
+
+.splash-col-down {
+  animation-name: splash-scroll-down;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -837,5 +864,15 @@ input:focus {
 .org-avatar:hover {
   background: var(--org-hover);
   color: var(--org-text);
+}
+
+/* ── Фон страницы входа: картинка из public/login-bg.png ── */
+
+.org-login-bg {
+  background-color: #f4f3f1;
+  background-image: url("/login-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 

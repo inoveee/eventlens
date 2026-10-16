@@ -2,6 +2,7 @@
 "use client";
 
 import { config } from "@/lib/config";
+import { useState } from "react";
 import { isRecentlyUpdated, splitFirstSentence, timeAgo } from "@/lib/utils";
 import { useEventSettings } from "@/components/EventSettingsProvider";
 import PhotoUpload from "@/components/PhotoUpload";
@@ -33,6 +34,12 @@ export default function GalleryHeader({
     document.getElementById("el-face-input")?.click();
   };
 
+  // Логотип организатора заменяет иконку платформы — рядом они не стоят.
+  // Если логотип не задан или не загрузился, показываем иконку noveee.me.
+  const [failedLogo, setFailedLogo] = useState<string | null>(null);
+  const logo = branding.logo;
+  const showLogo = !!logo && failedLogo !== logo;
+
   // Первая фраза — светлая, хвост после точки — в акцентном цвете ивента
   const { first: statementFirst, rest: statementRest } = splitFirstSentence(
     eventText.statement,
@@ -50,26 +57,23 @@ export default function GalleryHeader({
             />
           </div>
           <div className="flex min-w-0 items-center gap-3">
-            {branding.logo ? (
-              /* Organizer logo — falls back to the event name if the
-                 image fails to load. */
-              // eslint-disable-next-line @next/next/no-img-element
+            {showLogo && logo ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={branding.logo}
+                src={logo}
                 alt={eventText.name}
                 className="h-9 w-auto object-contain md:h-12"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
+                onError={() => setFailedLogo(logo)}
               />
-            ) : null}
-            {/* noveee.me — иконка платформы вместо текстовой подписи */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/noveee-icon.png"
-              alt="noveee.me"
-              className="h-8 w-auto md:h-11"
-            />
+            ) : (
+              /* noveee.me — иконка платформы, только когда логотип не задан */
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src="/noveee-icon.png"
+                alt="noveee.me"
+                className="h-8 w-auto md:h-11"
+              />
+            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-2">

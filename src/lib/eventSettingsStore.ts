@@ -422,6 +422,49 @@ export async function renameProject(key: string, title: string): Promise<Setting
   });
 }
 
+/** Алиас уже занят другим проектом. */
+export class ProjectKeyTakenError extends Error {}
+
+/**
+ * Смена алиаса: проект получает новый ключ — публичный адрес /p/<newKey>
+ * и адрес панели /organizer/project/<newKey>. Содержимое настроек
+ * не трогаем, меняется только идентификатор хранилища.
+ */
+export async function rekeyProject(oldKey: string, newKey: string): Promise<void> {
+  assertKey(oldKey);
+  assertKey(newKey);
+  if (oldKey === newKey) return;
+  if (!(await projectExists(oldKey))) throw new ProjectNotFoundError("Проект не найден");
+  if (await projectExists(newKey)) {
+    throw new ProjectKeyTakenError("Такой алиас уже занят — выберите другой");
+  }
+
+  if (storageEngine() === "supabase") {
+    const { createServerClient } = await import("./supabase");
+    const supabase = createServerClient();
+    const { error } = await supabase
+      .from("event_settings")
+      .update({ event_key: newKey })
+      .eq("event_key", oldKey);
+    if (error) {
+      if (error.code === "23505") {
+        throw new ProjectKeyTakenError("Такой алиас уже занят — выберите другой");
+      }
+      throw new StorageUnavailableError(`Не удалось сменить алиас: ${error.message}`);
+    }
+    return;
+  }
+
+  const record = await readFileRecord(oldKey);
+  if (!record) throw new ProjectNotFoundError("Проект не найден");
+  await writeFileRecord(newKey, record);
+  await fs.unlink(filePath(oldKey)).catch(() => {});
+  if (oldKey === DEFAULT_PROJECT_KEY) {
+    // Легаси-файл одного мероприятия больше не должен воскрешать «default».
+    await fs.unlink(legacyFilePath()).catch(() => {});
+  }
+}
+
 /** Метаданные: дата, описание, архивирование. */
 export async function updateProjectMeta(
   key: string,
