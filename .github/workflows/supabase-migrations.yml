@@ -70,5 +70,5 @@ jobs:
             echo "  зафиксирована версия $v"
           done
           echo "Готово. Применённые версии в БД:"
-          echo "$APPLIED" | jq -r '.[]?.version // empty' | sort | tr '\n' ' '
+          echo "$APPLIED" | grep -o '"version":"[^"]*"' | cut -d'"' -f4 | sort -u | tr '\n' ' '
           echo
