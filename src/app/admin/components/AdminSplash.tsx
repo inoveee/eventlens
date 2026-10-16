@@ -2,10 +2,11 @@
 // Загрузочный (сплэш) экран входа в админку: по центру иконка noveee
 // с вращающимся оранжевым кольцом, на фоне — бесконечные колонки
 // сообщений в стиле iMessage (жалобы участников на поиск фото).
+// Показывается первые секунды после открытия страницы, затем плавно
+// растворяется (см. AdminLogin), открывая форму входа.
 "use client";
 
 import Image from "next/image";
-import type { ReactNode } from "react";
 
 interface Message {
   name: string;
@@ -222,9 +223,13 @@ function FeedColumn({
   );
 }
 
-export default function AdminSplash({ children }: { children?: ReactNode }) {
+export default function AdminSplash({ fading = false }: { fading?: boolean }) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[var(--el-bg)]">
+    <div
+      className={`fixed inset-0 z-50 overflow-hidden bg-[var(--el-bg)] transition-opacity duration-700 ${
+        fading ? "pointer-events-none opacity-0" : "opacity-100"
+      }`}
+    >
       {/* ── Фон: колонки сообщений, уходящие вверх и вниз ── */}
       <div
         className="absolute inset-0 flex justify-center gap-3 px-4 pt-8"
@@ -264,9 +269,9 @@ export default function AdminSplash({ children }: { children?: ReactNode }) {
         aria-hidden
       />
 
-      {/* ── Центр: иконка с вращающимся оранжевым кольцом + форма ── */}
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4">
-        <div className="relative flex h-32 w-32 items-center justify-center md:h-36 md:w-36">
+      {/* ── Центр: иконка с вращающимся оранжевым кольцом ── */}
+      <div className="relative z-10 flex h-full items-center justify-center px-4">
+        <div className="relative flex h-28 w-28 items-center justify-center md:h-32 md:w-32">
           {/* Оранжевая дуга-индикатор вокруг иконки */}
           <svg
             viewBox="0 0 100 100"
@@ -296,18 +301,12 @@ export default function AdminSplash({ children }: { children?: ReactNode }) {
               src="/noveee-icon.png"
               alt="noveee"
               fill
-              sizes="120px"
+              sizes="128px"
               className="object-contain"
               priority
             />
           </div>
         </div>
-
-        <p className="mt-5 text-sm font-semibold tracking-tight text-[var(--el-text)]">
-          noveee
-        </p>
-
-        {children && <div className="mt-6 w-full max-w-[300px]">{children}</div>}
       </div>
     </div>
   );
