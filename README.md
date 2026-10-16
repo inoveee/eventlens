@@ -156,8 +156,8 @@ Fill in the values:
 | `NEXT_PUBLIC_DEFAULT_ALBUM_NAME` | No | Title of the general album on the home grid (default: `Общий альбом`) |
 | `NEXT_PUBLIC_EVENT_YEAR` | No | Year shown next to the event name |
 | `NEXT_PUBLIC_LOGO_URL` | No | Organizer logo (SVG/PNG). Empty = text-only header |
-| `NEXT_PUBLIC_THEME` | No | `dark` (default) or `light` color scheme |
-| `NEXT_PUBLIC_PRIMARY_COLOR` | No | Brand color — buttons, headings, borders (default: `#00ff41`) |
+| `NEXT_PUBLIC_THEME` | No | `dark` (default) or `light` — default color scheme. Visitors can switch it in the footer |
+| `NEXT_PUBLIC_PRIMARY_COLOR` | No | Brand color — buttons, headings, borders (default: `#fd8d2c`) |
 | `NEXT_PUBLIC_ACCENT_COLOR` | No | Secondary brand color — hover, highlights (default: `#ff00ff`) |
 | `NEXT_PUBLIC_BG_COLOR` | No | Page background. Defaults to the theme's background |
 | `NEXT_PUBLIC_SURFACE_COLOR` | No | Card/panel background. Defaults to the theme's surface |
@@ -181,6 +181,11 @@ Two extra token families exist for a reason:
 - `--el-overlay-*` — modal scrims derived from the page background.
 
 Set `NEXT_PUBLIC_THEME=light` for daylight/projector-friendly galleries.
+It is only the *default*: every visitor can switch between dark and light
+backgrounds with the selector in the footer (the choice is saved per browser).
+Explicit `NEXT_PUBLIC_BG_COLOR` / `SURFACE_COLOR` / `TEXT_COLOR` pin those
+values for both themes — the switcher then changes everything else except the
+pinned colors.
 Never hardcode hex values in components — use the tokens.
 
 ### 5. Process photos

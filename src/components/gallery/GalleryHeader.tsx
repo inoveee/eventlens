@@ -4,6 +4,7 @@
 import { config } from "@/lib/config";
 import { isRecentlyUpdated, splitFirstSentence, timeAgo } from "@/lib/utils";
 import PhotoUpload from "@/components/PhotoUpload";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import type { UseSearchReturn } from "@/hooks/useSearch";
 import type { MatchResult, MatchTier } from "@/lib/types";
 
@@ -42,8 +43,14 @@ export default function GalleryHeader({
   return (
     <header className="el-hero">
       <div className="mx-auto max-w-6xl px-5 pt-6 pb-9 md:px-8 md:pt-10 md:pb-16">
-        {/* ── Верхняя строка: логотип слева, мета-чипы справа ── */}
-        <div className="flex items-start justify-between gap-4">
+        {/* ── Верхняя строка: логотип слева, тема по центру, мета-чипы справа ── */}
+        <div className="relative flex items-start justify-between gap-4">
+          {/* Переключатель фона — в самом верху по центру страницы */}
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 print:hidden">
+            <ThemeSwitcher
+              defaultTheme={config.theme === "light" ? "light" : "dark"}
+            />
+          </div>
           <div className="flex min-w-0 items-center gap-3">
             {config.logoUrl ? (
               /* Organizer logo — falls back to the event name if the
@@ -58,9 +65,13 @@ export default function GalleryHeader({
                 }}
               />
             ) : null}
-            <span className="text-[10px] font-semibold uppercase tracking-[0.32em] text-white/45 md:text-[11px]">
-              Фотогалерея
-            </span>
+            {/* noveee.me — иконка платформы вместо текстовой подписи */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/noveee-icon.png"
+              alt="noveee.me"
+              className="h-8 w-auto md:h-11"
+            />
           </div>
 
           <div className="flex shrink-0 items-center gap-2">

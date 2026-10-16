@@ -23,7 +23,9 @@
   color-scheme: dark;
 
   /* ── Brand (overridable via env vars in layout.tsx) ── */
-  --el-primary: #00ff41;
+  /* Оранжевый noveee.me (#fd8d2c) — цвет из иконки платформы;
+     был неоново-зелёным (#00ff41) от исходного Eventlens. */
+  --el-primary: #fd8d2c;
   --el-accent: #ff00ff;
 
   /* Base for every derived shade below. Equals the pure brand color in
@@ -152,6 +154,14 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
+
+  /* Surfaces & text — светлая версия фона. Порядок: эти значения
+     переопределяют тёмные дефолты из :root, а явно заданные в env
+     NEXT_PUBLIC_BG_COLOR / SURFACE_COLOR / TEXT_COLOR пинятся выше
+     инлайн-стилем в layout.tsx. Фон переключается на лету (подвал). */
+  --el-bg: #f7f7f5;
+  --el-surface: #ffffff;
+  --el-text: #1a1a1a;
 
   /* #9a9a9a (dark-theme dim) only reaches 2.6:1 on #f7f7f5 — AA needs 4.5 */
   --el-text-dim: #6b6b6b;

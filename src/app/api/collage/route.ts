@@ -282,7 +282,7 @@ export async function POST(request: NextRequest) {
       mappedHeroIndex,
     );
 
-    const primaryColor = config.primaryColor || "#00ff41";
+    const primaryColor = config.primaryColor || "#fd8d2c";
     const secondaryColor = config.secondaryColor || "#ff00ff";
     const eventName = (config.eventName || "EVENTLENS").toUpperCase();
     const eventYear = config.eventYear || "2026";

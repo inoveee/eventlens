@@ -57,7 +57,7 @@ export const config: EventLensConfig = {
     process.env.NEXT_PUBLIC_DEFAULT_ALBUM_NAME || "Общий альбом",
   logoUrl: process.env.NEXT_PUBLIC_LOGO_URL || "",
   theme: process.env.NEXT_PUBLIC_THEME === "light" ? "light" : "dark",
-  primaryColor: hex(process.env.NEXT_PUBLIC_PRIMARY_COLOR, "#00ff41"),
+  primaryColor: hex(process.env.NEXT_PUBLIC_PRIMARY_COLOR, "#fd8d2c"),
   secondaryColor: hex(process.env.NEXT_PUBLIC_SECONDARY_COLOR, "#ff00ff"),
   accentColor: hex(process.env.NEXT_PUBLIC_ACCENT_COLOR, "#ff00ff"),
   backgroundColor: hex(

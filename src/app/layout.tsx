@@ -36,13 +36,19 @@ export default function RootLayout({
 
   const theme = process.env.NEXT_PUBLIC_THEME === "light" ? "light" : "dark";
 
-  // Theme-aware defaults; organizer's env values always win.
-  const primaryColor = pick(process.env.NEXT_PUBLIC_PRIMARY_COLOR, "#00ff41");
+  // Theme-aware defaults; organizer's explicit env values always win.
+  const primaryColor = pick(process.env.NEXT_PUBLIC_PRIMARY_COLOR, "#fd8d2c");
   const accentColor = pick(process.env.NEXT_PUBLIC_ACCENT_COLOR, "#ff00ff");
   const light = theme === "light";
-  const bgColor = pick(process.env.NEXT_PUBLIC_BG_COLOR, light ? "#f7f7f5" : "#1a1a1a");
-  const surfaceColor = pick(process.env.NEXT_PUBLIC_SURFACE_COLOR, light ? "#ffffff" : "#222222");
-  const textColor = pick(process.env.NEXT_PUBLIC_TEXT_COLOR, light ? "#1a1a1a" : "#e0e0e0");
+
+  // Фон/поверхность/текст инжектируются ТОЛЬКО если организатор задал их
+  // явно. Без этого они следуют за data-theme из globals.css — иначе
+  // инлайн-стиль с запечённым цветом победил бы при переключении темы
+  // из подвала («Светлая/Тёмная»).
+  const bgColor = normalizeHex(process.env.NEXT_PUBLIC_BG_COLOR);
+  const surfaceColor = normalizeHex(process.env.NEXT_PUBLIC_SURFACE_COLOR);
+  const textColor = normalizeHex(process.env.NEXT_PUBLIC_TEXT_COLOR);
+  const metaBg = bgColor ?? (light ? "#f7f7f5" : "#1a1a1a");
 
   // Black-on-brand is unreadable when the brand color is dark, and white is
   // unreadable on light neons — pick by relative luminance instead of guessing.
@@ -53,18 +59,26 @@ export default function RootLayout({
   const brandTokens = `:root:root {
     --el-primary: ${primaryColor};
     --el-accent: ${accentColor};
-    --el-bg: ${bgColor};
-    --el-surface: ${surfaceColor};
-    --el-text: ${textColor};
     --el-on-primary: ${onPrimary};
+    ${bgColor ? `--el-bg: ${bgColor};` : ""}
+    ${surfaceColor ? `--el-surface: ${surfaceColor};` : ""}
+    ${textColor ? `--el-text: ${textColor};` : ""}
   }`;
 
+  // Восстановление выбора темы из localStorage до первой отрисовки,
+  // чтобы не было «мигания» дефолтной темы при загрузке.
+  const themeRestore = `(function(){try{var t=localStorage.getItem("el-theme");if(t!=="light"&&t!=="dark")return;document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m){var c=getComputedStyle(document.documentElement).getPropertyValue("--el-bg").trim();if(c)m.setAttribute("content",c);}}catch(e){}})();`;
+
+  // suppressHydrationWarning на <html>: скрипт в <head> применяет
+  // сохранённую тему (data-theme) до гидратации — без этого React
+  // увидел бы «attributes didn't match» при выборе «Тёмная/Светлая».
   return (
-    <html lang="ru" className="dark" data-theme={theme}>
+    <html lang="ru" data-theme={theme} suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content={bgColor} />
+        <meta name="theme-color" content={metaBg} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <script dangerouslySetInnerHTML={{ __html: themeRestore }} />
         {process.env.PHOTO_SOURCE === "yandex" ? (
           <>
             <link rel="preconnect" href="https://downloader.disk.yandex.ru" />
