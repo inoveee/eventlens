@@ -6,10 +6,10 @@
 
 import { useState } from "react";
 import { useOrganizer } from "@/hooks/organizer/OrganizerContext";
-import { SectionHeader, ConfirmDialog } from "../components/ui";
-import ColorControl from "../components/ColorControl";
-import ImageField from "../components/ImageField";
-import PagePreview from "../components/PagePreview";
+import { SectionHeader, ConfirmDialog } from "@/app/organizer/components/ui";
+import ColorControl from "@/app/organizer/components/ColorControl";
+import ImageField from "@/app/organizer/components/ImageField";
+import PagePreview from "@/app/organizer/components/PagePreview";
 import {
   HERO_ACCEPTED_TYPES,
   HERO_IMAGE_MAX_BYTES,

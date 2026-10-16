@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPhotosWithMetadata, getFolders, getTags } from "@/lib/photos";
 import { resolvePhotoSource } from "@/lib/eventSettingsStore";
+import { coerceProjectKey } from "@/lib/eventSettings";
 
 export const revalidate = 30;
 
@@ -12,9 +13,28 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = Number(searchParams.get("limit")) || 0;
     const offset = Number(searchParams.get("offset")) || 0;
+    // Проект: /p/<key> на публичной странице; без параметра — «default».
+    const project = coerceProjectKey(searchParams.get("project"));
+    if (project === null) {
+      return NextResponse.json({ error: "Некорректный ключ проекта" }, { status: 400 });
+    }
 
     console.log("[v0] GATE 3: calling fetchPhotosWithMetadata");
-    const source = await resolvePhotoSource();
+    const source = await resolvePhotoSource(project);
+
+    // Проект без подключённой папки — пустая галерея вместо запроса
+    // к диску (env-фолбэк действует только для легаси-проекта «default»).
+    if (!source.value) {
+      return NextResponse.json({
+        photos: [],
+        folders: [],
+        tags: [],
+        lastUpdated: "",
+        total: 0,
+        hasMore: false,
+      });
+    }
+
     const allPhotos = await fetchPhotosWithMetadata(source);
     console.log("[v0] GATE 4: got", allPhotos.length, "photos");
     const folders = getFolders(allPhotos);

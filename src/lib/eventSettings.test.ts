@@ -10,6 +10,12 @@ import {
   heroBackgroundValue,
   heroTokens,
   normalizeEventSettings,
+  coerceProjectKey,
+  defaultProjectMeta,
+  makeProjectKey,
+  normalizeProjectMeta,
+  slugifyProjectTitle,
+  summarizeProject,
 } from "./eventSettings";
 
 describe("normalizeEventSettings", () => {
@@ -135,5 +141,94 @@ describe("accentTokens", () => {
     expect(accentTokens("#fd8d2c")["--el-on-primary"]).toBe("#000000");
     expect(accentTokens("#0f172a")["--el-on-primary"]).toBe("#ffffff");
     expect(accentTokens("#0f172a")["--el-primary"]).toBe("#0f172a");
+  });
+});
+
+describe("ключи и метаданные проектов", () => {
+  test("slugifyProjectTitle транслитерирует и чистит название", () => {
+    expect(slugifyProjectTitle("Моя свадьба 2026")).toBe("moya-svadba-2026");
+    expect(slugifyProjectTitle("День Города!!")).toBe("den-goroda");
+    expect(slugifyProjectTitle("  ---  ")).toBe("");
+  });
+
+  test("makeProjectKey выдаёт уникальный ключ", () => {
+    expect(makeProjectKey("Моя свадьба")).toBe("moya-svadba");
+    const taken = new Set(["moya-svadba"]);
+    const key = makeProjectKey("Моя свадьба", (k) => taken.has(k));
+    expect(key).toMatch(/^moya-svadba-[a-z0-9]+$/);
+    expect(taken.has(key)).toBe(false);
+    // Мусорное название не даёт пустой ключ
+    expect(makeProjectKey("!!!")).toBe("project");
+  });
+
+  test("coerceProjectKey: пусто → default, мусор → null", () => {
+    expect(coerceProjectKey(null)).toBe("default");
+    expect(coerceProjectKey("")).toBe("default");
+    expect(coerceProjectKey("default")).toBe("default");
+    expect(coerceProjectKey("moya-svadba")).toBe("moya-svadba");
+    expect(coerceProjectKey("Bad Key!")).toBeNull();
+    expect(coerceProjectKey("../etc/passwd")).toBeNull();
+  });
+
+  test("normalizeProjectMeta проверяет дату и усекает описание", () => {
+    const base = { ...defaultProjectMeta(), createdAt: "2026-01-01T00:00:00.000Z" };
+    const meta = normalizeProjectMeta(
+      { date: "2026-05-24", description: "  Важное мероприятие  ", archived: true },
+      base,
+    );
+    expect(meta.date).toBe("2026-05-24");
+    expect(meta.description).toBe("Важное мероприятие");
+    expect(meta.archived).toBe(true);
+    expect(meta.createdAt).toBe(base.createdAt);
+
+    // Некорректная дата не затирает корректную
+    const broken = normalizeProjectMeta({ date: "not-a-date" }, base);
+    expect(broken.date).toBeNull();
+    const kept = normalizeProjectMeta({ date: "24.05.2026" }, { ...base, date: "2026-05-24" });
+    expect(kept.date).toBe("2026-05-24");
+  });
+
+  test("summarizeProject собирает сводку карточки", () => {
+    const draft = defaultEventSettings();
+    draft.text.name = "Картинг";
+    const record = {
+      draft,
+      published: null,
+      photos: {
+        provider: "yandex" as const,
+        url: "https://disk.yandex.ru/d/x",
+        status: "connected" as const,
+        photoCount: 387,
+        folderCount: 0,
+        processed: null,
+        connectedAt: "2026-01-01T00:00:00.000Z",
+        lastSyncAt: null,
+        error: null,
+      },
+      meta: { ...defaultProjectMeta(), date: "2026-05-24" },
+      updatedAt: "2026-02-01T00:00:00.000Z",
+    };
+    const summary = summarizeProject("karting", record);
+    expect(summary.key).toBe("karting");
+    expect(summary.title).toBe("Картинг");
+    expect(summary.published).toBe(false);
+    expect(summary.photos).toEqual({ connected: true, photoCount: 387, provider: "yandex" });
+    expect(summary.date).toBe("2026-05-24");
+    expect(summary.cover).toBeNull();
+
+    // Опубликованный проект с фоном-обложкой
+    const withCover = summarizeProject("karting", {
+      ...record,
+      published: draft,
+      draft: {
+        ...draft,
+        branding: {
+          ...draft.branding,
+          hero: { ...draft.branding.hero, image: "data:image/png;base64,AAA" },
+        },
+      },
+    });
+    expect(withCover.published).toBe(true);
+    expect(withCover.cover).toBe("data:image/png;base64,AAA");
   });
 });

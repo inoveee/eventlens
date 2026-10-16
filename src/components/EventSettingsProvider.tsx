@@ -24,15 +24,25 @@ import {
   defaultEventSettings,
 } from "@/lib/eventSettings";
 
-const PREVIEW_KEY = "el-preview-draft";
+const PREVIEW_KEY_PREFIX = "el-preview-draft:";
 const PREVIEW_TTL_MS = 60 * 60 * 1000;
 
-/** Кладёт черновик в localStorage — новая вкладка откроется с «/?preview=1»
- *  и увидит его вместо опубликованной версии. Ключ знает только эта вкладка. */
-export function storeDraftForPreview(settings: EventSettings): void {
+/** Ключ черновика предпросмотра в localStorage — свой у каждого проекта,
+ *  чтобы предпросмотры разных мероприятий не смешивались. */
+export function previewStorageKey(projectKey: string): string {
+  return `${PREVIEW_KEY_PREFIX}${projectKey}`;
+}
+
+/** Кладёт черновик в localStorage — новая вкладка откроется с
+ *  «/p/<key>?preview=1» и увидит его вместо опубликованной версии.
+ *  Ключ знает только эта вкладка. */
+export function storeDraftForPreview(
+  settings: EventSettings,
+  projectKey = "default",
+): void {
   try {
     window.localStorage.setItem(
-      PREVIEW_KEY,
+      previewStorageKey(projectKey),
       JSON.stringify({ settings, exp: Date.now() + PREVIEW_TTL_MS }),
     );
   } catch {}
@@ -61,10 +71,10 @@ interface PreviewEntry {
   exp: number;
 }
 
-function readPreview(): EventSettings | null {
+function readPreview(projectKey: string): EventSettings | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(PREVIEW_KEY);
+    const raw = window.localStorage.getItem(previewStorageKey(projectKey));
     if (!raw) return null;
     const entry = JSON.parse(raw) as PreviewEntry;
     if (!entry?.settings || typeof entry.exp !== "number" || entry.exp < Date.now()) {
@@ -77,8 +87,10 @@ function readPreview(): EventSettings | null {
 }
 
 export default function EventSettingsProvider({
+  projectKey = "default",
   children,
 }: {
+  projectKey?: string;
   children: React.ReactNode;
 }) {
   const [published, setPublished] = useState<EventSettings | null>(null);
@@ -93,14 +105,14 @@ export default function EventSettingsProvider({
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("preview") === "1";
     if (wantPreview) {
-      const entry = readPreview();
+      const entry = readPreview(projectKey);
       if (entry) {
         setPreviewSettings(entry);
         setPreview(true);
       }
     }
 
-    fetch("/api/event/settings")
+    fetch(`/api/event/settings?project=${encodeURIComponent(projectKey)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled && data && data.published) {
@@ -115,7 +127,7 @@ export default function EventSettingsProvider({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [projectKey]);
 
   const value = useMemo<EventSettingsContextValue>(() => {
     const settings = previewSettings ?? published ?? defaultEventSettings();

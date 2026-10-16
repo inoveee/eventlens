@@ -29,13 +29,6 @@ export default function GalleryHeader({
   const { settings } = useEventSettings();
   const { text: eventText, branding } = settings;
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/login";
-    } catch {}
-  };
-
   const triggerFaceSearch = () => {
     document.getElementById("el-face-input")?.click();
   };
@@ -89,13 +82,6 @@ export default function GalleryHeader({
                 Обновлено {timeAgo(lastUpdated)}
               </span>
             )}
-            <button
-              onClick={handleLogout}
-              className="rounded-full border border-[var(--el-hero-border)] px-3.5 py-1.5 text-xs text-[var(--el-hero-chip-text)] transition-colors hover:bg-[var(--el-hero-chip-bg)] hover:text-[var(--el-hero-text)]"
-              title="Выйти"
-            >
-              Выйти
-            </button>
           </div>
         </div>
 

@@ -50,6 +50,153 @@ export interface EventSettings {
   branding: BrandingSettings;
 }
 
+/** Метаданные проекта (мероприятия), отдельные от настроек страницы.
+ *  Название мероприятия живёт в draft.text.name — здесь только то,
+ *  что не относится к оформлению. */
+export interface ProjectMeta {
+  /** Дата проведения в формате YYYY-MM-DD. null — не указана. */
+  date: string | null;
+  /** Краткое описание для карточки проекта. */
+  description: string;
+  /** Проект в архиве: скрыт из основного списка, но не удалён. */
+  archived: boolean;
+  createdAt: string;
+}
+
+export const PROJECT_TITLE_LIMIT = 80;
+export const PROJECT_DESCRIPTION_LIMIT = 240;
+
+export function defaultProjectMeta(): ProjectMeta {
+  return {
+    date: null,
+    description: "",
+    archived: false,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Нормализует метаданные проекта; некорректные значения заменяются
+ *  предыдущими или значениями по умолчанию. */
+export function normalizeProjectMeta(input: unknown, base?: ProjectMeta): ProjectMeta {
+  const raw = (input ?? {}) as Partial<ProjectMeta>;
+  const prev = base ?? defaultProjectMeta();
+  const date =
+    raw.date === null
+      ? null
+      : typeof raw.date === "string" && DATE_RE.test(raw.date)
+        ? raw.date
+        : prev.date;
+  return {
+    date,
+    description:
+      typeof raw.description === "string"
+        ? raw.description.trim().slice(0, PROJECT_DESCRIPTION_LIMIT)
+        : prev.description,
+    archived: typeof raw.archived === "boolean" ? raw.archived : prev.archived,
+    createdAt:
+      typeof raw.createdAt === "string" && raw.createdAt
+        ? raw.createdAt
+        : prev.createdAt,
+  };
+}
+
+/** Ключ проекта в URL и хранилище: латиница, цифры, дефис. */
+const PROJECT_KEY_RE = /^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])?$/;
+
+export function isProjectKey(value: unknown): value is string {
+  return typeof value === "string" && PROJECT_KEY_RE.test(value);
+}
+
+/** Проверяет присланный ключ: null/пусто → "default", мусор → null. */
+export function coerceProjectKey(value: unknown): string | null {
+  if (value == null || value === "") return "default";
+  return isProjectKey(value) ? value : null;
+}
+
+const CYRILLIC_MAP: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
+  и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
+  с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh",
+  щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+};
+
+/** Читаемый ключ из названия: «Моя свадьба» → «moya-svadba». */
+export function slugifyProjectTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .split("")
+    .map((ch) => (ch in CYRILLIC_MAP ? CYRILLIC_MAP[ch] : ch))
+    .join("")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Уникальный ключ проекта; isTaken проверяет конфликты. */
+export function makeProjectKey(
+  title: string,
+  isTaken?: (key: string) => boolean,
+): string {
+  const base = (slugifyProjectTitle(title).slice(0, 40).replace(/-+$/g, "") || "project");
+  if (!isTaken?.(base)) return base;
+  for (let i = 0; i < 50; i += 1) {
+    const suffix = Math.random().toString(36).slice(2, 6);
+    const candidate = `${base}-${suffix}`;
+    if (!isTaken?.(candidate)) return candidate;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
+
+/** Строка карточки проекта для списка «Мои проекты». */
+export interface ProjectSummary {
+  key: string;
+  title: string;
+  date: string | null;
+  description: string;
+  archived: boolean;
+  /** Опубликованная версия существует — посетители видят страницу. */
+  published: boolean;
+  /** Состояние папки с фотографиями; null — папка не подключалась. */
+  photos: { connected: boolean; photoCount: number; provider: "yandex" | "drive" } | null;
+  /** Миниатюра карточки: фон hero или логотип, если загружены. */
+  cover: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+/** Сводка проекта из его записи хранилища (чистая функция — тестируется). */
+export function summarizeProject(
+  key: string,
+  record: {
+    draft: EventSettings;
+    published: EventSettings | null;
+    photos: PhotoConnection | null;
+    meta: ProjectMeta;
+    updatedAt: string;
+  },
+): ProjectSummary {
+  return {
+    key,
+    title: record.draft.text.name,
+    date: record.meta.date,
+    description: record.meta.description,
+    archived: record.meta.archived,
+    published: record.published !== null,
+    photos: record.photos
+      ? {
+          connected: record.photos.status === "connected",
+          photoCount: record.photos.photoCount,
+          provider: record.photos.provider,
+        }
+      : null,
+    cover: record.draft.branding.hero.image ?? record.draft.branding.logo,
+    updatedAt: record.updatedAt,
+    createdAt: record.meta.createdAt,
+  };
+}
+
 /** Подключённая папка с фотографиями и статус синхронизации. */
 export interface PhotoConnection {
   provider: "yandex" | "drive";

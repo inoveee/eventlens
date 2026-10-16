@@ -1,9 +1,16 @@
 // @TheTechMargin 2026
-// Состояние панели организатора: авторизация, черновик настроек,
-// статусы сохранения/публикации, подключение папки, уведомления.
+// Состояние панели организатора.
+//
+// Два контекста:
+//   1. OrganizerAuthProvider — авторизация (пароль, сессия, уведомления).
+//      Живёт в корневом layout: и стартовый экран «Мои проекты», и
+//      настройки проекта начинаются со входа.
+//   2. OrganizerProvider — состояние одного проекта: черновик настроек,
+//      статусы сохранения/публикации, подключение папки. Ключ проекта
+//      приходит из маршрута /organizer/project/<key>.
 //
 // Черновик живёт в памяти вкладки и хранится на сервере; публичная
-// страница видит только опубликованную версию.
+// страница /p/<key> видит только опубликованную версию.
 
 "use client";
 
@@ -22,6 +29,7 @@ import {
   BrandingSettings,
   HeroSettings,
   PhotoConnection,
+  ProjectMeta,
   defaultEventSettings,
   settingsEqual,
 } from "@/lib/eventSettings";
@@ -35,8 +43,11 @@ export type PublishStatus = {
   hint: string;
 };
 
-interface OrganizerContextValue {
-  // Авторизация
+/* ────────────────────────── Авторизация ────────────────────────── */
+
+interface OrganizerAuthValue {
+  /** Проверяем сохранённый секрет — ни входа, ни контента ещё нет. */
+  checking: boolean;
   authenticated: boolean;
   authenticating: boolean;
   authError: string | null;
@@ -45,6 +56,136 @@ interface OrganizerContextValue {
   login: () => Promise<void>;
   logout: () => void;
 
+  toast: { id: number; message: string } | null;
+  notify: (message: string) => void;
+  dismissToast: () => void;
+}
+
+const OrganizerAuthContext = createContext<OrganizerAuthValue | null>(null);
+
+export function useOrganizerAuth(): OrganizerAuthValue {
+  const ctx = useContext(OrganizerAuthContext);
+  if (!ctx) throw new Error("useOrganizerAuth must be used inside OrganizerAuthProvider");
+  return ctx;
+}
+
+export function OrganizerAuthProvider({ children }: { children: React.ReactNode }) {
+  const [secret, setSecretState] = useState("");
+  const [checking, setChecking] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticating, setAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const notify = useCallback((message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    const item = { id: Date.now(), message };
+    setToast(item);
+    toastTimer.current = setTimeout(() => {
+      setToast((current) => (current?.id === item.id ? null : current));
+    }, 5000);
+  }, []);
+
+  const dismissToast = useCallback(() => setToast(null), []);
+
+  /** Проверяет секрет лёгким запросом списка проектов. */
+  const probeAuth = useCallback(async (candidate: string): Promise<boolean> => {
+    const res = await fetch("/api/event/projects", {
+      headers: { Authorization: `Bearer ${candidate}` },
+    });
+    return res.ok;
+  }, []);
+
+  // Скрытый вход: секрет из этой вкладки (sessionStorage).
+  useEffect(() => {
+    let stored = "";
+    try {
+      stored = sessionStorage.getItem(SECRET_STORAGE_KEY) || "";
+    } catch {}
+    if (!stored) {
+      setChecking(false);
+      return;
+    }
+    setSecretState(stored);
+    probeAuth(stored)
+      .then((ok) => {
+        if (ok) {
+          setAuthenticated(true);
+        } else {
+          try {
+            sessionStorage.removeItem(SECRET_STORAGE_KEY);
+          } catch {}
+          setSecretState("");
+        }
+      })
+      .finally(() => setChecking(false));
+  }, [probeAuth]);
+
+  const setSecret = useCallback((value: string) => {
+    setSecretState(value);
+    setAuthError(null);
+  }, []);
+
+  const login = useCallback(async () => {
+    if (!secret.trim()) {
+      setAuthError("Введите пароль организатора");
+      return;
+    }
+    setAuthenticating(true);
+    setAuthError(null);
+    try {
+      const ok = await probeAuth(secret.trim());
+      if (!ok) {
+        setAuthError("Неверный пароль");
+        return;
+      }
+      try {
+        sessionStorage.setItem(SECRET_STORAGE_KEY, secret.trim());
+      } catch {}
+      setAuthenticated(true);
+    } catch {
+      setAuthError("Не удалось войти — попробуйте ещё раз");
+    } finally {
+      setAuthenticating(false);
+    }
+  }, [secret, probeAuth]);
+
+  const logout = useCallback(() => {
+    try {
+      sessionStorage.removeItem(SECRET_STORAGE_KEY);
+    } catch {}
+    setAuthenticated(false);
+    setSecretState("");
+  }, []);
+
+  const value = useMemo<OrganizerAuthValue>(
+    () => ({
+      checking,
+      authenticated,
+      authenticating,
+      authError,
+      secret,
+      setSecret,
+      login,
+      logout,
+      toast,
+      notify,
+      dismissToast,
+    }),
+    [checking, authenticated, authenticating, authError, secret, setSecret, login, logout, toast, notify, dismissToast],
+  );
+
+  return <OrganizerAuthContext.Provider value={value}>{children}</OrganizerAuthContext.Provider>;
+}
+
+/* ─────────────────────────── Проект ─────────────────────────── */
+
+interface OrganizerContextValue {
+  /** Ключ проекта в маршруте /organizer/project/<key>. */
+  projectKey: string;
+
   // Данные
   loading: boolean;
   loadError: string | null;
@@ -52,6 +193,7 @@ interface OrganizerContextValue {
   saved: EventSettings;
   published: EventSettings | null;
   photos: PhotoConnection | null;
+  meta: ProjectMeta;
   storage: "supabase" | "file" | null;
 
   // Статусы
@@ -74,10 +216,8 @@ interface OrganizerContextValue {
   openPublicPage: () => void;
   openPreview: () => void;
 
-  // Уведомления
-  toast: { id: number; message: string } | null;
+  /** Уведомления (общие со стартовым экраном — из авторизации). */
   notify: (message: string) => void;
-  dismissToast: () => void;
 
   busy: boolean;
 }
@@ -94,51 +234,19 @@ interface SettingsResponse {
   draft?: EventSettings;
   published?: EventSettings | null;
   photos?: PhotoConnection | null;
+  meta?: ProjectMeta;
   updatedAt?: string;
   storage?: "supabase" | "file";
   error?: string;
 }
 
-export function OrganizerProvider({ children }: { children: React.ReactNode }) {
-  const [secret, setSecretState] = useState("");
-  const [authenticated, setAuthenticated] = useState(false);
-  const [authenticating, setAuthenticating] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EventSettings>(() => defaultEventSettings());
-  const [saved, setSaved] = useState<EventSettings>(() => defaultEventSettings());
-  const [published, setPublished] = useState<EventSettings | null>(null);
-  const [photos, setPhotos] = useState<PhotoConnection | null>(null);
-  const [storage, setStorage] = useState<"supabase" | "file" | null>(null);
-
-  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const notify = useCallback((message: string) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    const item = { id: Date.now(), message };
-    setToast(item);
-    toastTimer.current = setTimeout(() => {
-      setToast((current) => (current?.id === item.id ? null : current));
-    }, 5000);
-  }, []);
-
-  const dismissToast = useCallback(() => setToast(null), []);
-
-  const applyResponse = useCallback((data: SettingsResponse) => {
-    if (data.draft) setDraft(data.draft);
-    if (data.draft) setSaved(data.draft);
-    if (data.published !== undefined) setPublished(data.published ?? null);
-    if (data.photos !== undefined) setPhotos(data.photos ?? null);
-    if (data.storage) setStorage(data.storage);
-  }, []);
-
-  const request = useCallback(
+/** Запросы панели: секрет из авторизации, ключ проекта — в URL/теле. */
+function useProjectRequest(projectKey: string) {
+  const { secret } = useOrganizerAuth();
+  return useCallback(
     async (path: string, init?: RequestInit): Promise<Response> => {
-      return fetch(path, {
+      const separator = path.includes("?") ? "&" : "?";
+      return fetch(`${path}${separator}project=${encodeURIComponent(projectKey)}`, {
         ...init,
         headers: {
           Authorization: `Bearer ${secret}`,
@@ -147,8 +255,43 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         },
       });
     },
-    [secret],
+    [secret, projectKey],
   );
+}
+
+export function OrganizerProvider({
+  projectKey,
+  children,
+}: {
+  projectKey: string;
+  children: React.ReactNode;
+}) {
+  const { notify, authenticated } = useOrganizerAuth();
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<EventSettings>(() => defaultEventSettings());
+  const [saved, setSaved] = useState<EventSettings>(() => defaultEventSettings());
+  const [published, setPublished] = useState<EventSettings | null>(null);
+  const [photos, setPhotos] = useState<PhotoConnection | null>(null);
+  const [meta, setMeta] = useState<ProjectMeta>(() => ({
+    date: null,
+    description: "",
+    archived: false,
+    createdAt: new Date().toISOString(),
+  }));
+  const [storage, setStorage] = useState<"supabase" | "file" | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const request = useProjectRequest(projectKey);
+
+  const applyResponse = useCallback((data: SettingsResponse) => {
+    if (data.draft) setDraft(data.draft);
+    if (data.draft) setSaved(data.draft);
+    if (data.published !== undefined) setPublished(data.published ?? null);
+    if (data.photos !== undefined) setPhotos(data.photos ?? null);
+    if (data.meta !== undefined) setMeta(data.meta);
+    if (data.storage) setStorage(data.storage);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,7 +299,6 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await request("/api/event/settings");
       if (res.status === 401) {
-        setAuthenticated(false);
         setLoadError("Сессия истекла — войдите снова.");
         return;
       }
@@ -164,7 +306,6 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) throw new Error(data.error || "Не удалось загрузить настройки");
       if (!data.draft) throw new Error("Нет доступа к настройкам мероприятия");
       applyResponse(data);
-      setAuthenticated(true);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Не удалось загрузить настройки");
     } finally {
@@ -172,85 +313,11 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [request, applyResponse]);
 
-  // Скрытый вход: секрет из этой вкладки (sessionStorage).
+  // Загрузка после входа (или сразу, если секрет уже в вкладке).
   useEffect(() => {
-    let stored = "";
-    try {
-      stored = sessionStorage.getItem(SECRET_STORAGE_KEY) || "";
-    } catch {}
-    if (!stored) {
-      setLoading(false);
-      return;
-    }
-    setSecretState(stored);
-    (async () => {
-      try {
-        const res = await fetch("/api/event/settings", {
-          headers: { Authorization: `Bearer ${stored}` },
-        });
-        if (res.status === 401) {
-          try {
-            sessionStorage.removeItem(SECRET_STORAGE_KEY);
-          } catch {}
-          return;
-        }
-        const data = (await res.json()) as SettingsResponse;
-        if (res.ok) {
-          setSecretState(stored);
-          applyResponse(data);
-          setAuthenticated(true);
-        }
-      } catch {}
-      setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const setSecret = useCallback((value: string) => {
-    setSecretState(value);
-    setAuthError(null);
-  }, []);
-
-  const login = useCallback(async () => {
-    if (!secret.trim()) {
-      setAuthError("Введите пароль организатора");
-      return;
-    }
-    setAuthenticating(true);
-    setAuthError(null);
-    try {
-      const res = await fetch("/api/event/settings", {
-        headers: { Authorization: `Bearer ${secret.trim()}` },
-      });
-      if (res.status === 401) {
-        setAuthError("Неверный пароль");
-        return;
-      }
-      const data = (await res.json()) as SettingsResponse;
-      if (!res.ok) throw new Error(data.error || "Не удалось войти");
-      if (!data.draft) {
-        setAuthError("Неверный пароль");
-        return;
-      }
-      try {
-        sessionStorage.setItem(SECRET_STORAGE_KEY, secret.trim());
-      } catch {}
-      applyResponse(data);
-      setAuthenticated(true);
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : "Не удалось войти");
-    } finally {
-      setAuthenticating(false);
-    }
-  }, [secret, applyResponse]);
-
-  const logout = useCallback(() => {
-    try {
-      sessionStorage.removeItem(SECRET_STORAGE_KEY);
-    } catch {}
-    setAuthenticated(false);
-    setSecretState("");
-  }, []);
+    if (authenticated) void load();
+    else setLoading(false);
+  }, [authenticated, load]);
 
   const unsavedChanges = useMemo(() => !settingsEqual(draft, saved), [draft, saved]);
   const unpublishedChanges = useMemo(
@@ -270,7 +337,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
       return {
         label: "Не опубликовано",
         tone: "neutral",
-        hint: "Посетители видят стандартное оформление.",
+        hint: "Посетители пока не видят страницу проекта.",
       };
     }
     if (unpublishedChanges) {
@@ -307,7 +374,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await request("/api/event/settings", {
         method: "PUT",
-        body: JSON.stringify({ draft }),
+        body: JSON.stringify({ draft, project: projectKey }),
       });
       const data = (await res.json()) as SettingsResponse;
       if (!res.ok) throw new Error(data.error || "Не удалось сохранить");
@@ -320,14 +387,14 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [draft, request, applyResponse, notify]);
+  }, [draft, projectKey, request, applyResponse, notify]);
 
   const publish = useCallback(async () => {
     setBusy(true);
     try {
       const res = await request("/api/event/publish", {
         method: "POST",
-        body: JSON.stringify({ draft }),
+        body: JSON.stringify({ draft, project: projectKey }),
       });
       const data = (await res.json()) as SettingsResponse;
       if (!res.ok) throw new Error(data.error || "Не удалось опубликовать");
@@ -340,12 +407,15 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [draft, request, applyResponse, notify]);
+  }, [draft, projectKey, request, applyResponse, notify]);
 
   const resetBranding = useCallback(async () => {
     setBusy(true);
     try {
-      const res = await request("/api/event/reset", { method: "POST" });
+      const res = await request("/api/event/reset", {
+        method: "POST",
+        body: JSON.stringify({ project: projectKey }),
+      });
       const data = (await res.json()) as SettingsResponse;
       if (!res.ok) throw new Error(data.error || "Не удалось сбросить оформление");
       applyResponse(data);
@@ -357,7 +427,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [request, applyResponse, notify]);
+  }, [projectKey, request, applyResponse, notify]);
 
   const connectRequest = useCallback(
     async (body: Record<string, string>) => {
@@ -365,7 +435,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await request("/api/event/photos", {
           method: "POST",
-          body: JSON.stringify(body),
+          body: JSON.stringify({ ...body, project: projectKey }),
         });
         const data = (await res.json()) as {
           photos?: PhotoConnection;
@@ -382,7 +452,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         setBusy(false);
       }
     },
-    [request],
+    [request, projectKey],
   );
 
   const connectPhotos = useCallback(
@@ -395,15 +465,22 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     [connectRequest],
   );
 
-  const openPublicPage = useCallback(() => {
-    window.open("/", "_blank", "noopener");
-  }, []);
+  /** Публичная страница проекта: /p/<key>. */
+  const publicUrl = useCallback(
+    () => `/p/${encodeURIComponent(projectKey)}`,
+    [projectKey],
+  );
 
-  /** Черновик кладётся в localStorage — новая вкладка откроется с «/?preview=1». */
+  const openPublicPage = useCallback(() => {
+    window.open(publicUrl(), "_blank", "noopener");
+  }, [publicUrl]);
+
+  /** Черновик кладётся в localStorage — новая вкладка откроется с
+   *  «/p/<key>?preview=1» и покажет его вместо опубликованного. */
   const openPreview = useCallback(() => {
-    storeDraftForPreview(draft);
-    window.open("/?preview=1", "_blank", "noopener");
-  }, [draft]);
+    storeDraftForPreview(draft, projectKey);
+    window.open(`${publicUrl()}?preview=1`, "_blank", "noopener");
+  }, [draft, projectKey, publicUrl]);
 
   // Не даём закрыть вкладку с несохранёнными правками.
   useEffect(() => {
@@ -418,19 +495,14 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<OrganizerContextValue>(
     () => ({
-      authenticated,
-      authenticating,
-      authError,
-      secret,
-      setSecret,
-      login,
-      logout,
+      projectKey,
       loading,
       loadError,
       draft,
       saved,
       published,
       photos,
+      meta,
       storage,
       unsavedChanges,
       unpublishedChanges,
@@ -446,25 +518,18 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
       syncPhotos,
       openPublicPage,
       openPreview,
-      toast,
       notify,
-      dismissToast,
       busy,
     }),
     [
-      authenticated,
-      authenticating,
-      authError,
-      secret,
-      setSecret,
-      login,
-      logout,
+      projectKey,
       loading,
       loadError,
       draft,
       saved,
       published,
       photos,
+      meta,
       storage,
       unsavedChanges,
       unpublishedChanges,
@@ -480,9 +545,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
       syncPhotos,
       openPublicPage,
       openPreview,
-      toast,
       notify,
-      dismissToast,
       busy,
     ],
   );

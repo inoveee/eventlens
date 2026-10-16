@@ -3,6 +3,7 @@
 
 "use client";
 
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 
 export function SectionHeader({
@@ -110,6 +111,55 @@ export function ConfirmDialog({
             {busy ? "Выполняем…" : confirmLabel}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Модальное окно с произвольным содержимым (формы создания/переименования).
+ *  Закрывается по Escape и клику вне окна. */
+export function Modal({
+  open,
+  title,
+  description,
+  onClose,
+  children,
+  footer,
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 backdrop-blur-[2px]"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="org-card w-full max-w-[440px] p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-[16px] font-semibold tracking-[-0.015em]">{title}</h3>
+        {description && <p className="org-hint mt-2">{description}</p>}
+        <div className="mt-4">{children}</div>
+        {footer && <div className="mt-5 flex justify-end gap-2">{footer}</div>}
       </div>
     </div>
   );

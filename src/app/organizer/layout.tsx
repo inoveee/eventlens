@@ -1,9 +1,10 @@
 // @TheTechMargin 2026
-// Оболочка раздела организатора. Панель не индексируется поисковиками.
+// Авторизация организатора для всех маршрутов панели (/organizer/*):
+// стартовый экран «Мои проекты» живёт на «/» и оборачивает себя сам,
+// а настройки проекта вложены сюда. Панель не индексируется.
 
 import type { Metadata } from "next";
-import { OrganizerProvider } from "@/hooks/organizer/OrganizerContext";
-import OrganizerShell from "./components/OrganizerShell";
+import { OrganizerAuthProvider } from "@/hooks/organizer/OrganizerContext";
 
 export const metadata: Metadata = {
   title: "Панель организатора — noveee.me",
@@ -13,9 +14,5 @@ export const metadata: Metadata = {
 export default function OrganizerLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <OrganizerProvider>
-      <OrganizerShell>{children}</OrganizerShell>
-    </OrganizerProvider>
-  );
+  return <OrganizerAuthProvider>{children}</OrganizerAuthProvider>;
 }

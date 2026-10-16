@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useOrganizer } from "@/hooks/organizer/OrganizerContext";
-import { SectionHeader, StatTile } from "../components/ui";
+import { SectionHeader, StatTile } from "@/app/organizer/components/ui";
 import type { PhotoConnection } from "@/lib/eventSettings";
 
 function formatWhen(iso: string | null): string {

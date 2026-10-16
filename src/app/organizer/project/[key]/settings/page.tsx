@@ -5,7 +5,7 @@
 "use client";
 
 import { useOrganizer } from "@/hooks/organizer/OrganizerContext";
-import { SectionHeader, Field } from "../components/ui";
+import { SectionHeader, Field } from "@/app/organizer/components/ui";
 import { TEXT_LIMITS, defaultEventSettings, settingsEqual } from "@/lib/eventSettings";
 
 export default function EventSettingsPage() {

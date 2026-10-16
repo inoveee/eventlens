@@ -11,6 +11,8 @@ import {
   EventSettings,
   brandingTokens,
 } from "@/lib/eventSettings";
+import { withProjectParam } from "@/lib/project";
+import { useOrganizer } from "@/hooks/organizer/OrganizerContext";
 import { splitFirstSentence } from "@/lib/utils";
 
 type Viewport = "desktop" | "mobile";
@@ -31,10 +33,11 @@ export default function PagePreview({
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [photos, setPhotos] = useState<PreviewPhoto[] | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
+  const { projectKey } = useOrganizer();
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/photos?limit=8")
+    fetch(withProjectParam("/api/photos?limit=8", projectKey))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
@@ -49,7 +52,7 @@ export default function PagePreview({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [projectKey]);
 
   const tokens = brandingTokens(settings.branding) as React.CSSProperties;
   const { first, rest } = splitFirstSentence(settings.text.statement);

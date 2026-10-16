@@ -4,6 +4,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { PhotoRecord, PhotosResponse } from "@/lib/types";
 import { shuffleArray } from "@/lib/utils";
+import { withProjectParam } from "@/lib/project";
+import { useProjectKey } from "@/hooks/useProjectKey";
 
 export interface UsePhotosReturn {
   allPhotos: PhotoRecord[];
@@ -20,6 +22,7 @@ export interface UsePhotosReturn {
 }
 
 export function usePhotos(): UsePhotosReturn {
+  const projectKey = useProjectKey();
   const [allPhotos, setAllPhotos] = useState<PhotoRecord[]>([]);
   const [shuffledPhotos, setShuffledPhotos] = useState<PhotoRecord[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
@@ -32,13 +35,13 @@ export function usePhotos(): UsePhotosReturn {
 
   const fetchData = useCallback(async (): Promise<PhotosResponse | null> => {
     try {
-      const res = await fetch("/api/photos");
+      const res = await fetch(withProjectParam("/api/photos", projectKey));
       if (!res.ok) throw new Error("Failed to fetch");
       return await res.json();
     } catch {
       return null;
     }
-  }, []);
+  }, [projectKey]);
 
   // Initial load
   useEffect(() => {

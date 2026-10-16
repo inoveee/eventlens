@@ -1,12 +1,22 @@
 // @TheTechMargin 2026
-import { Suspense } from "react";
-import PhotoGallery from "@/components/gallery/PhotoGallery";
-import GridSkeleton from "@/components/gallery/GridSkeleton";
+// Стартовый экран продукта: вход организатора и список его проектов.
+// Отсюда организатор попадает в настройки мероприятия, а посетители —
+// в публичную галерею проекта по адресу /p/<key>.
 
-export default function Home() {
+import type { Metadata } from "next";
+import { OrganizerAuthProvider } from "@/hooks/organizer/OrganizerContext";
+import ProjectsScreen from "@/app/organizer/components/ProjectsScreen";
+
+export const metadata: Metadata = {
+  title: "Мои проекты — noveee.me",
+  description: "Управляйте мероприятиями, фотографиями и оформлением страниц.",
+  robots: { index: false, follow: false },
+};
+
+export default function HomePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[var(--el-bg)]"><GridSkeleton /></div>}>
-      <PhotoGallery />
-    </Suspense>
+    <OrganizerAuthProvider>
+      <ProjectsScreen />
+    </OrganizerAuthProvider>
   );
 }

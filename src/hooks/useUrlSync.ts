@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { PhotoRecord } from "@/lib/types";
 
 export function useUrlSync(params: {
@@ -11,6 +11,7 @@ export function useUrlSync(params: {
   selectedPhoto?: PhotoRecord | null;
 }): void {
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const urlParams = new URLSearchParams();
@@ -18,6 +19,8 @@ export function useUrlSync(params: {
     if (params.folder) urlParams.set("folder", params.folder);
     if (params.selectedPhoto) urlParams.set("photo", params.selectedPhoto.filename);
     const str = urlParams.toString();
-    router.replace(str ? `?${str}` : "/", { scroll: false });
-  }, [params.search, params.folder, params.selectedPhoto, router]);
+    // Пустые параметры — остаёмся на текущем адресе: публичная галерея
+    // живёт на /p/<key>, а не на корневом экране организатора.
+    router.replace(str ? `?${str}` : pathname, { scroll: false });
+  }, [params.search, params.folder, params.selectedPhoto, router, pathname]);
 }

@@ -8,7 +8,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { classifyPhotoUrl, probePhotoSource, readProcessingStats } from "@/lib/photoSource";
+import { coerceProjectKey } from "@/lib/eventSettings";
 import {
+  ProjectNotFoundError,
   StorageUnavailableError,
   readRecord,
   writeRecord,
@@ -26,8 +28,15 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as {
       action?: string;
       url?: string;
+      project?: string;
     };
-    const record = await readRecord();
+    const key =
+      coerceProjectKey(body.project) ??
+      coerceProjectKey(request.nextUrl.searchParams.get("project"));
+    if (key === null) {
+      return NextResponse.json({ error: "Некорректный ключ проекта" }, { status: 400 });
+    }
+    const record = await readRecord(key);
 
     let target = (body.url || "").trim();
     if (body.action === "sync") {
@@ -53,7 +62,7 @@ export async function POST(request: NextRequest) {
       if (hadWorkingConnection) {
         // Синхронизация той же папки не удалась — прежнее подключение
         // остаётся рабочим, но ошибка показывается организатору.
-        const next = await writeRecord({
+        const next = await writeRecord(key, {
           photos: { ...previous, error: probe.error },
         });
         return NextResponse.json(
@@ -74,7 +83,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const next = await writeRecord({
+      const next = await writeRecord(key, {
         photos: {
           provider:
             probe.provider === "unknown"
@@ -95,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     const processed = await readProcessingStats();
     const now = new Date().toISOString();
-    const next = await writeRecord({
+    const next = await writeRecord(key, {
       photos: {
         provider: probe.provider,
         url: probe.url,
@@ -115,6 +124,9 @@ export async function POST(request: NextRequest) {
       detected: classifyPhotoUrl(target).provider,
     });
   } catch (err) {
+    if (err instanceof ProjectNotFoundError) {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
     if (err instanceof StorageUnavailableError) {
       return NextResponse.json({ error: err.message }, { status: 503 });
     }

@@ -754,3 +754,88 @@ input:focus {
   overscroll-behavior: contain;
 }
 
+/* ── Экран «Мои проекты»: карточки, меню, аватар ── */
+
+.project-card {
+  transition: border-color 0.15s var(--el-ease), box-shadow 0.15s var(--el-ease),
+    transform 0.15s var(--el-ease);
+}
+
+@media (hover: hover) {
+  .project-card:hover {
+    border-color: var(--org-border-strong);
+    box-shadow: 0 6px 20px rgba(16, 16, 20, 0.07);
+    transform: translateY(-1px);
+  }
+  .project-card-title:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--org-border-strong);
+    text-underline-offset: 3px;
+  }
+}
+
+.org-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 190px;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid var(--org-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(16, 16, 20, 0.12);
+}
+
+.org-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--org-text);
+  text-align: left;
+  border-radius: 8px;
+  transition: background 0.12s var(--el-ease);
+}
+
+.org-menu-item:hover {
+  background: var(--org-hover);
+}
+
+.org-menu-item-danger {
+  color: var(--org-err);
+}
+
+.org-menu-item-danger:hover {
+  background: var(--org-err-bg);
+}
+
+.org-menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--org-border);
+}
+
+.org-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #ececef;
+  border: 1px solid var(--org-border-strong);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--org-dim);
+  transition: background 0.12s var(--el-ease);
+}
+
+.org-avatar:hover {
+  background: var(--org-hover);
+  color: var(--org-text);
+}
+
