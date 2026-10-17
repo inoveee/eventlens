@@ -1,8 +1,11 @@
-# Packing rules for the standalone face-api deploy (replaces .gitignore
-# for this folder): the buffalo_l weights under insightface/ MUST ship.
+# Packing rules for the standalone face-api deploy. The buffalo_l weights
+# are NOT bundled: the 176MB archive exceeds the platform's 600s upload
+# window on a slow link, and app.py downloads the trimmed models from the
+# GitHub release (face-models-v1) at cold start instead.
 .venv/
 __pycache__/
 *.pyc
 run-local.sh
 requirements-local.txt
 Dockerfile
+insightface/
