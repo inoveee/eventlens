@@ -177,7 +177,7 @@ export default function AppearancePage() {
                   <ImageField
                     variant="wide"
                     label="Фоновое изображение"
-                    hint="Крупная картинка без мелких деталей — текст поверх неё читается лучше всего."
+                    hint="Рекомендуемый размер — 1920×1080 px (формат 16:9), до 3 МБ: PNG, JPEG или WebP. Крупная картинка без мелких деталей — текст поверх неё читается лучше всего."
                     accept={HERO_ACCEPTED_TYPES}
                     maxBytes={HERO_IMAGE_MAX_BYTES}
                     value={hero.image}
@@ -205,7 +205,9 @@ export default function AppearancePage() {
                       </button>
                     </div>
                     <p className="org-hint mt-1.5">
-                      «Заполнять» — без пустых полей, «Вписать» — видна вся картинка.
+                      «Заполнять» — без пустых полей, но края обрезаются под экран:
+                      важное держите в центре картинки. «Вписать» — видна вся
+                      картинка, по бокам возможны поля.
                     </p>
                   </div>
                 </div>
@@ -255,7 +257,7 @@ export default function AppearancePage() {
             </p>
             <ImageField
               label="Логотип мероприятия или компании"
-              hint="Отображается в левом верхнем углу страницы. Если логотипа нет — там название мероприятия."
+              hint="Отображается в левом верхнем углу страницы. Рекомендуем PNG с прозрачным фоном или SVG, высота 96–144 px, до 512 КБ. Если логотипа нет — там название мероприятия."
               accept={LOGO_ACCEPTED_TYPES}
               maxBytes={LOGO_MAX_BYTES}
               value={draft.branding.logo}
