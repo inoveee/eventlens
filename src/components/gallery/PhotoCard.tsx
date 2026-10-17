@@ -72,6 +72,7 @@ function PhotoCardInner({
             alt={photo.filename}
             fill
             unoptimized
+            referrerPolicy="no-referrer"
             loading={index < 8 ? "eager" : "lazy"}
             {...(index < 8 ? { priority: true } : {})}
             className={`object-cover transition-opacity duration-300 ${

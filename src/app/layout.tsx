@@ -16,6 +16,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: `${eventName} — Найдите свои фото`,
   description: eventTagline,
+  // Яндекс.Диск отдаёт 403 на запросы картинок с чужого referer
+  // (hotlink-защита), поэтому галерея никогда не шлёт referer наружу —
+  // иначе на прод-домене все превью и скачивание недоступны.
+  referrer: "no-referrer",
   // Иконки (icon.png / apple-icon.png) подхватываются из src/app автоматически
   openGraph: {
     title: `${eventName} — Найдите свои фото`,

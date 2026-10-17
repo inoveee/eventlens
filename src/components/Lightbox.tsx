@@ -401,6 +401,7 @@ export default function Lightbox({
                 alt={photo.filename}
                 fill
                 unoptimized
+                referrerPolicy="no-referrer"
                 className={`object-contain select-none lightbox-media lightbox-image ${imageLoaded ? 'loaded' : ''}`}
                 draggable={false}
                 onLoad={handleImageLoaded}
@@ -482,6 +483,7 @@ export default function Lightbox({
                 href={photo.downloadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                referrerPolicy="no-referrer"
                 download={photo.filename}
                 className="inline-flex h-9 items-center gap-2 border border-[var(--el-primary-99)] bg-[var(--el-primary-11)] px-3 text-xs font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] active:bg-[var(--el-primary-22)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)] transition-all"
               >
