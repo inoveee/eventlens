@@ -61,16 +61,20 @@ export default function StartScreen() {
   if (stage === "app") {
     return (
       <>
-        {/* Крестик-назад виден только на неавторизованном экране (вход):
-            после входа организатор остаётся в панели. */}
+        {/* Кнопка-назад видна только на неавторизованном экране (вход):
+            после входа организатор остаётся в панели. Тёмная заливка —
+            на светлом фоне логина белая pill сливалась с картинкой. */}
         {!checking && !authenticated && (
           <button
             type="button"
             onClick={backToIntro}
             aria-label="Назад на главную"
-            className="fixed left-4 top-4 z-[100] flex items-center gap-1.5 rounded-full border border-[var(--org-border)] bg-white/90 px-3.5 py-2 text-[13px] font-medium text-[var(--org-text)] shadow-[0_6px_20px_rgba(0,0,0,0.14)] backdrop-blur transition-colors hover:bg-white"
+            className="fixed left-0 top-4 z-[100] flex items-center gap-2 rounded-r-full border-y border-r border-[var(--org-border-strong)] bg-[var(--org-text)] py-3 pl-4 pr-5 text-[14px] font-semibold text-white shadow-[0_8px_26px_rgba(0,0,0,0.35)] transition hover:pr-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--el-primary,#4f7cff)]"
           >
-            <span aria-hidden>←</span> Назад
+            <span aria-hidden className="text-[16px] leading-none">
+              ←
+            </span>
+            Назад
           </button>
         )}
         <ProjectsScreen />
