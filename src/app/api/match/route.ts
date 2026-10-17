@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 const FACE_API_URL = process.env.FACE_API_URL || "";
 const FACE_API_SECRET = process.env.FACE_API_SECRET || "";
-const EMBED_TIMEOUT_MS = 15_000;
+const EMBED_TIMEOUT_MS = 25_000;
 const VECTOR_THRESHOLD = 0.68;
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_BASE64_SIZE = 10 * 1024 * 1024;
@@ -108,20 +108,32 @@ async function vectorMatch(imageBase64: string, project?: string) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (FACE_API_SECRET) headers["Authorization"] = `Bearer ${FACE_API_SECRET}`;
 
-  let embedRes: Response;
-  try {
-    embedRes = await fetch(`${FACE_API_URL}/embed`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ img: imageBase64 }),
-      signal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Face matching service is temporarily unavailable. Please try again shortly." },
-      { status: 503 },
-    );
+  let embedRes: Response | null = null;
+  // Повтор на случай холодного старта face-api (scale-to-zero): первый
+  // запрос уходит в таймаут или получает 5xx с заглушки, повтор попадает
+  // на прогретый контейнер.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(`${FACE_API_URL}/embed`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ img: imageBase64 }),
+        signal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
+      });
+      embedRes = res;
+      if (res.ok || res.status < 500) break;
+      if (attempt === 2) break;
+    } catch {
+      if (attempt === 2) {
+        return NextResponse.json(
+          { error: "Face matching service is temporarily unavailable. Please try again shortly." },
+          { status: 503 },
+        );
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
   }
+  if (!embedRes) return NextResponse.json({ error: "Face matching failed" }, { status: 500 });
 
   if (!embedRes.ok) {
     return NextResponse.json(
