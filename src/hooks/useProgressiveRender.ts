@@ -1,13 +1,18 @@
 // @TheTechMargin 2026
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 
 const DEFAULT_BATCH_SIZE = 40;
 
 export interface UseProgressiveRenderReturn {
   visibleCount: number;
-  sentinelRef: React.RefObject<HTMLDivElement | null>;
+  /** Callback-ref, а не RefObject: сентинел появляется в DOM позже хука
+   *  (на главной его вовсе нет, пока не открыт режим «все фото»), и
+   *  наблюдатель создаётся именно в момент его маунта — иначе
+   *  IntersectionObserver никогда не создаётся и первая порция фото
+   *  остаётся единственной. */
+  sentinelRef: Dispatch<SetStateAction<HTMLDivElement | null>>;
 }
 
 export function useProgressiveRender(
@@ -16,11 +21,10 @@ export function useProgressiveRender(
   resetKey: string = "",
 ): UseProgressiveRenderReturn {
   const [visibleCount, setVisibleCount] = useState(batchSize);
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 
   // IntersectionObserver to load more
   useEffect(() => {
-    const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -32,12 +36,12 @@ export function useProgressiveRender(
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [totalCount, batchSize]);
+  }, [sentinel, totalCount, batchSize]);
 
   // Reset visible count when filters change
   useEffect(() => {
     setVisibleCount(batchSize);
   }, [resetKey, batchSize]);
 
-  return { visibleCount, sentinelRef };
+  return { visibleCount, sentinelRef: setSentinel };
 }
