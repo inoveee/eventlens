@@ -9,12 +9,13 @@ export const maxDuration = 60;
 const FACE_API_URL = process.env.FACE_API_URL || "";
 const FACE_API_SECRET = process.env.FACE_API_SECRET || "";
 const EMBED_TIMEOUT_MS = 25_000;
-// Cosine-similarity floor for a gallery match. 0.68 was tuned for the big
-// buffalo_l (w600k_r50) model; the deployed buffalo_sc (w600k_mbf) is
-// lighter and mushier: measured on the live gallery (2762 embeddings),
-// genuine same-person pairs — including cross-day phone shots with
-// hat/glasses — land at 0.55–0.7, while impostors top out at ~0.45.
-const VECTOR_THRESHOLD = 0.55;
+// Cosine-similarity floor for a gallery match. Measured on the live
+// gallery after the buffalo_l (w600k_r50) re-ingest (2920 embeddings):
+// genuine same-person clusters — cross-day phone shots included — sit
+// at 0.63–0.89 (test HEIC selfie: 0.72–0.75), while impostors top out
+// at ~0.57 (rare strays to ~0.67, ranked below the genuine cluster).
+// 0.63 keeps the whole genuine cluster and cuts the strangers.
+const VECTOR_THRESHOLD = 0.63;
 // heic/heif — формат камеры iPhone «как есть»; декодер на стороне face-api
 // (Pillow + pillow-heif), роуту достаточно пропустить формат дальше.
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
