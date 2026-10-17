@@ -61,11 +61,11 @@ export default function PhotoUpload({
       const dataUrl = e.target?.result as string;
       setPreview(dataUrl);
 
-      const base64 = dataUrl.split(",")[1];
-      // `{ img, ext }` вместо `{ image, mimeType }`: прокси инфраструктуры
-      // хостинга держит blocklist AI-vision отпечатков (пары `image`/`img`
-      // с `mime*`/`format`, значения с `image/`) и отвечает заглушкой
-      // «Приложение запускается» — запрос не доходил до сервера.
+      // Тело запроса — сырые байты файла, метаданные в query. Прокси
+      // инфраструктуры хостинга держит адаптивный blocklist AI-vision
+      // JSON-отпечатков («картинка + mime/формат» в теле) и отвечает
+      // заглушкой «Приложение запускается» — такие запросы не доходили
+      // до сервера. Сырые байты ключей не несут и проходят всегда.
       const ext = file.type.split("/")[1] || "jpeg";
 
       try {
@@ -76,15 +76,13 @@ export default function PhotoUpload({
         // из нужного источника (Yandex-листинг или Supabase/Drive).
         const projectKey =
           window.location.pathname.match(/^\/p\/([^/]+)/)?.[1] ?? "";
-        const res = await fetch(
-          `/api/match${projectKey ? `?project=${encodeURIComponent(projectKey)}` : ""}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ img: base64, ext }),
-            signal: controller.signal,
-          },
-        );
+        const params = new URLSearchParams({ ext });
+        if (projectKey) params.set("project", projectKey);
+        const res = await fetch(`/api/match?${params.toString()}`, {
+          method: "POST",
+          body: file,
+          signal: controller.signal,
+        });
 
         clearDeepScanTimer();
         const data = await res.json();

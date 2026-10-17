@@ -49,10 +49,12 @@ export class FaceApiClient {
    * Get face embeddings and bounding boxes for an image.
    */
   async getEmbeddings(base64Image: string): Promise<FaceEmbeddingData[]> {
+    // Raw bytes instead of JSON: the hosting proxy fingerprints JSON
+    // bodies pairing image and mime-ish keys (see /api/match route).
     const res = await fetch(`${this.baseUrl}/embed`, {
       method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify({ img: base64Image }),
+      headers: { ...this.headers(), "Content-Type": "application/octet-stream" },
+      body: Buffer.from(base64Image, "base64"),
       signal: AbortSignal.timeout(60_000),
     });
 

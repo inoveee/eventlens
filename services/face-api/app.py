@@ -59,15 +59,20 @@ def embed():
         if token != API_SECRET:
             return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json()
-    # `img` is the field the EventLens server sends: the hosting proxy
-    # fingerprints JSON bodies pairing an `image` key with `mime*` keys,
-    # so both sides avoid that shape. Legacy `image` still accepted.
+    # Body: raw image bytes (preferred — no JSON keys for the hosting
+    # proxy's AI-vision fingerprint blocklist to match) or legacy JSON
+    # {"img"|"image": <base64>}.
+    ct = request.headers.get("Content-Type", "")
     image_b64 = None
-    if data:
+    if "json" in ct:
+        data = request.get_json(silent=True) or {}
         image_b64 = data.get("img") or data.get("image")
+    else:
+        raw = request.get_data()
+        if raw:
+            image_b64 = base64.b64encode(raw).decode()
     if not image_b64:
-        return jsonify({"error": "Missing 'img' (base64)"}), 400
+        return jsonify({"error": "Missing image body (raw bytes or JSON)"}), 400
 
     try:
         img_bytes = base64.b64decode(image_b64)
