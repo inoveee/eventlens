@@ -1,8 +1,8 @@
 // @TheTechMargin 2026
 import { NextRequest, NextResponse } from "next/server";
-import { rowToPhoto } from "@/lib/photos";
 import { PhotoRecord, MatchResult } from "@/lib/types";
-import { saveMatchSession, getPhotosByDriveFileIds, findSimilarSessions, getCooccurrenceRecommendations } from "@/lib/supabase";
+import { coerceProjectKey } from "@/lib/eventSettings";
+import { saveMatchSession, findSimilarSessions, getCooccurrenceRecommendations } from "@/lib/supabase";
 
 export const maxDuration = 60;
 
@@ -63,13 +63,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Face matching service is not configured." }, { status: 503 });
     }
 
-    return vectorMatch(image);
+    // Проект: галерея передаёт свой ключ (/p/<key>) — от него зависит,
+    // из какого источника резолвить совпавшие фото.
+    const project = coerceProjectKey(request.nextUrl.searchParams.get("project"));
+    return vectorMatch(image, project ?? undefined);
   } catch {
     return NextResponse.json({ error: "Failed to process photo match" }, { status: 500 });
   }
 }
 
-async function vectorMatch(imageBase64: string) {
+/**
+ * Резолв совпавших drive_file_id в PhotoRecord со свежими URL-ами.
+ * Yandex-проекты: фото хранятся в Supabase только как индекс (FK для
+ * face_embeddings), а подписанные URL-ы берутся из листинга диска —
+ * он же кэшируется ISR-ом на 30 секунд, как в /api/photos.
+ * Drive-проекты: строки photos → rowToPhoto (легаси-путь).
+ */
+async function resolveMatchedPhotos(
+  fileIds: string[],
+  project?: string,
+): Promise<Map<string, PhotoRecord>> {
+  const map = new Map<string, PhotoRecord>();
+  const { resolvePhotoSource } = await import("@/lib/eventSettingsStore");
+  const source = await resolvePhotoSource(project);
+
+  if (source.provider === "yandex" && source.value) {
+    const { fetchPhotosWithMetadata } = await import("@/lib/photos");
+    const wanted = new Set(fileIds);
+    const photos = await fetchPhotosWithMetadata(source);
+    for (const p of photos) {
+      if (wanted.has(p.driveFileId)) map.set(p.driveFileId, p);
+    }
+    return map;
+  }
+
+  const { getPhotosByDriveFileIds } = await import("@/lib/supabase");
+  const { rowToPhoto } = await import("@/lib/photos");
+  const photoRows = await getPhotosByDriveFileIds(fileIds);
+  for (const row of photoRows) map.set(row.drive_file_id, rowToPhoto(row));
+  return map;
+}
+
+async function vectorMatch(imageBase64: string, project?: string) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (FACE_API_SECRET) headers["Authorization"] = `Bearer ${FACE_API_SECRET}`;
 
@@ -127,9 +162,10 @@ async function vectorMatch(imageBase64: string) {
     }
   }
 
-  const photoRows = await getPhotosByDriveFileIds(Array.from(bestByPhoto.keys()));
-  const photoByFileId = new Map<string, PhotoRecord>();
-  for (const row of photoRows) photoByFileId.set(row.drive_file_id, rowToPhoto(row));
+  const photoByFileId = await resolveMatchedPhotos(
+    Array.from(bestByPhoto.keys()),
+    project,
+  );
 
   const matches: MatchResult[] = [];
   bestByPhoto.forEach((match, fileId) => {

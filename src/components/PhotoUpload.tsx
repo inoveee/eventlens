@@ -72,12 +72,19 @@ export default function PhotoUpload({
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
-        const res = await fetch("/api/match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ img: base64, ext }),
-          signal: controller.signal,
-        });
+        // Ключ проекта (/p/<key>) — по нему сервер резолвит совпавшие фото
+        // из нужного источника (Yandex-листинг или Supabase/Drive).
+        const projectKey =
+          window.location.pathname.match(/^\/p\/([^/]+)/)?.[1] ?? "";
+        const res = await fetch(
+          `/api/match${projectKey ? `?project=${encodeURIComponent(projectKey)}` : ""}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ img: base64, ext }),
+            signal: controller.signal,
+          },
+        );
 
         clearDeepScanTimer();
         const data = await res.json();
