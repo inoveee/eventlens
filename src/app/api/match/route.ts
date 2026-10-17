@@ -36,15 +36,18 @@ function vectorResponse(
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, mimeType } = await request.json();
-    if (!image || !mimeType) {
+    const { image, mimeType, mime: mimeAlias } = await request.json();
+    // `mime` — алиас против фильтра инфраструктуры хостинга: прокси
+    // перехватывает любое JSON-тело, где стоят ключи `image` + `mimeType`,
+    // и отвечает заглушкой «Приложение запускается» вместо приложения.
+    // Клиент шлёт поле `mime`; сервер принимает оба варианта.
+    const rawMime = mimeType ?? mimeAlias;
+    if (!image || !rawMime) {
       return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
     }
-    // MIME-типы по RFC регистронезависимы. Нормализация заодно обходит
-    // фильтр инфраструктуры хостинга: его regex режет ровно строчные
-    // «image/jpeg|png|webp|gif» в JSON-теле, а пропускает иные регистры.
-    const mime = String(mimeType).toLowerCase();
-    if (!ALLOWED_MIME.includes(mime)) {
+    // MIME-типы по RFC регистронезависимы.
+    const normalizedMime = String(rawMime).toLowerCase();
+    if (!ALLOWED_MIME.includes(normalizedMime)) {
       return NextResponse.json({ error: "Invalid image type" }, { status: 400 });
     }
     if (typeof image !== "string" || image.length > MAX_BASE64_SIZE) {

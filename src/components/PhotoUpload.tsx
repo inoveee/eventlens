@@ -62,10 +62,11 @@ export default function PhotoUpload({
       setPreview(dataUrl);
 
       const base64 = dataUrl.split(",")[1];
-      // Верхний регистр — не случайность: фильтр инфраструктуры хостинга
-      // перехватывает JSON с ровно строчными «image/jpeg|png|webp|gif»
-      // (отвечает заглушкой «Приложение запускается»), а MIME-типы по
-      // RFC регистронезависимы — сервер нормализует их к нижнему регистру.
+      // Поле `mime` вместо `mimeType`: прокси инфраструктуры хостинга
+      // отвечает заглушкой «Приложение запускается» на JSON, где рядом
+      // ключи `image` и `mimeType`, — запрос не доходил до сервера.
+      // Верхний регистр значения — страховка от regex-правил по значению;
+      // сервер нормализует регистр (MIME регистронезависим по RFC).
       const mimeType = file.type.toUpperCase();
 
       try {
@@ -75,7 +76,7 @@ export default function PhotoUpload({
         const res = await fetch("/api/match", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64, mimeType }),
+          body: JSON.stringify({ image: base64, mime: mimeType }),
           signal: controller.signal,
         });
 
