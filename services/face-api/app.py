@@ -9,6 +9,8 @@ import os
 import sys
 import base64
 import io
+import tarfile
+import urllib.request
 import numpy as np
 import cv2  # type: ignore[import-untyped]
 
@@ -55,19 +57,40 @@ def _decode_image(img_bytes: bytes):
 
 # Model root resolution (insightface 0.7.3 has no env-var support — the
 # root is the FaceAnalysis `root` parameter): weights bundled next to the
-# app (the deploy ships buffalo_sc — det_500m + w600k_mbf, 15MB total, it
-# fits both the deploy archive and the free tier's 256MB instance), then
-# the /tmp cache, then ~/.insightface for local runs without the bundle.
+# app (buffalo_sc — det_500m + w600k_mbf, 15MB, ships in the deploy
+# archive), then the /tmp cache from a previous boot of this container,
+# then ~/.insightface for local runs. On the Pro tier (1GB RAM) the
+# service runs buffalo_l (det_10g + w600k_r50): 176MB can't fit the
+# deploy archive's 600s upload window, so it is fetched once per
+# container lifetime from the GitHub release at cold start.
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _BUNDLED_HOME = os.path.join(_BASE_DIR, "insightface")
 _TMP_HOME = "/tmp/insightface"
+MODEL_URL = os.environ.get(
+    "INSIGHTFACE_MODEL_URL",
+    "https://github.com/inoveee/eventlens/releases/download/face-models-v1/buffalo_l_trimmed.tgz",
+)
 
 
 def _resolve_model_root() -> str:
+    model = os.environ.get("INSIGHTFACE_MODEL", "buffalo_sc")
     for home in (_BUNDLED_HOME, _TMP_HOME, os.path.expanduser("~/.insightface")):
-        if os.path.isdir(os.path.join(home, "models", os.environ.get("INSIGHTFACE_MODEL", "buffalo_sc"))):
+        if os.path.isdir(os.path.join(home, "models", model)):
             return home
-    return _BUNDLED_HOME
+    if model != "buffalo_l":
+        return _BUNDLED_HOME  # bundled weights are the fallback for other models
+    os.makedirs(_TMP_HOME, exist_ok=True)
+    tgz_path = "/tmp/buffalo_l.tgz"
+    print(f"[face-api] {model} weights missing — downloading from {MODEL_URL}", flush=True)
+    urllib.request.urlretrieve(MODEL_URL, tgz_path)
+    with tarfile.open(tgz_path) as tar:
+        try:
+            tar.extractall(_TMP_HOME, filter="data")
+        except TypeError:  # Python < 3.11.4 has no filter kwarg
+            tar.extractall(_TMP_HOME)
+    os.remove(tgz_path)
+    print("[face-api] models ready", flush=True)
+    return _TMP_HOME
 
 
 MODEL_ROOT = _resolve_model_root()
