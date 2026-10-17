@@ -138,6 +138,7 @@ async function vectorMatch(imageBase64: string, project?: string) {
   if (FACE_API_SECRET) headers["Authorization"] = `Bearer ${FACE_API_SECRET}`;
 
   let embedRes: Response | null = null;
+  const tEmbed0 = Date.now();
   // Повтор на случай холодного старта face-api (scale-to-zero): первый
   // запрос уходит в таймаут или получает 5xx с заглушки, повтор попадает
   // на прогретый контейнер.
@@ -165,6 +166,7 @@ async function vectorMatch(imageBase64: string, project?: string) {
     }
     await new Promise((resolve) => setTimeout(resolve, 3000));
   }
+  const tEmbedMs = Date.now() - tEmbed0;
   if (!embedRes) return NextResponse.json({ error: "Face matching failed" }, { status: 500 });
 
   if (!embedRes.ok) {
@@ -191,7 +193,9 @@ async function vectorMatch(imageBase64: string, project?: string) {
   // гостя — единицы; 30 обрезало даже скромные кластеры (несколько лиц
   // в одном групповом фото съедали лимит строк). 200 покрывает всё
   // настоящее, чужие выше порога — редкие единичные залеты.
+  const tRpc = Date.now();
   const faceMatches = await matchFacesByEmbedding(bestFace.embedding, VECTOR_THRESHOLD, 200);
+  const tRpcMs = Date.now() - tRpc;
 
   if (faceMatches.length === 0) {
     const similar = await findSimilarSessions(bestFace.embedding, 0.7, 1);
@@ -211,10 +215,17 @@ async function vectorMatch(imageBase64: string, project?: string) {
     }
   }
 
-  const photoByFileId = await resolveMatchedPhotos(
-    Array.from(bestByPhoto.keys()),
-    project,
-  );
+  const matchedFileIds = Array.from(bestByPhoto.keys());
+  const tStage0 = Date.now();
+  // Resolve фото и cooccurrence-рекомендации зависят только от списка
+  // id — раньше шли последовательно (~1-2с лишнего), теперь параллельно.
+  // В reco уходят и id, для которых не нашлось строки (без вреда: их
+  // просто нет в таблицах сессий).
+  const [photoByFileId, recommendations] = await Promise.all([
+    resolveMatchedPhotos(matchedFileIds, project),
+    getCooccurrenceRecommendations(matchedFileIds, matchedFileIds, 8),
+  ]);
+  const tStageMs = Date.now() - tStage0;
 
   const matches: MatchResult[] = [];
   bestByPhoto.forEach((match, fileId) => {
@@ -229,8 +240,10 @@ async function vectorMatch(imageBase64: string, project?: string) {
   });
   matches.sort((a, b) => b.confidence - a.confidence);
 
-  const matchedIds = matches.map((m) => m.photo.driveFileId);
-  const recommendations = await getCooccurrenceRecommendations(matchedIds, matchedIds, 8);
+  console.log(
+    `[match] embed=${tEmbedMs}ms rpc=${tRpcMs}ms resolve+reco=${tStageMs}ms ` +
+      `total=${Date.now() - tEmbed0}ms matches=${matches.length}`,
+  );
 
   return vectorResponse(matches, bestFace.embedding, {
     recommendations: recommendations.length > 0 ? recommendations : undefined,
