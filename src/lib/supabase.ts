@@ -41,14 +41,20 @@ export async function matchFacesByEmbedding(
   threshold = 0.6,
   limit = 20,
 ): Promise<FaceMatch[]> {
-  const supabase = createServerClient();
-  const { data, error } = await supabase.rpc("match_faces", {
-    query_embedding: queryEmbedding,
-    match_threshold: threshold,
-    match_count: limit,
-  });
-  if (error) return [];
-  return (data as FaceMatch[]) || [];
+  // Без Supabase (локальная file-storage конфигурация) просто возвращаем
+  // пусто — векторный поиск деградирует, а не падает 500-кой.
+  try {
+    const supabase = createServerClient();
+    const { data, error } = await supabase.rpc("match_faces", {
+      query_embedding: queryEmbedding,
+      match_threshold: threshold,
+      match_count: limit,
+    });
+    if (error) return [];
+    return (data as FaceMatch[]) || [];
+  } catch {
+    return [];
+  }
 }
 
 export async function enrichPhotoDescriptions(
@@ -103,14 +109,19 @@ export async function searchPhotosSemantic(
   threshold = 0.35,
   limit = 30,
 ): Promise<SemanticMatch[]> {
-  const supabase = createServerClient();
-  const { data, error } = await supabase.rpc("search_photos_semantic", {
-    query_embedding: queryEmbedding,
-    match_threshold: threshold,
-    match_count: limit,
-  });
-  if (error) return [];
-  return (data as SemanticMatch[]) || [];
+  // См. matchFacesByEmbedding: без Supabase возвращаем пусто, не падаем.
+  try {
+    const supabase = createServerClient();
+    const { data, error } = await supabase.rpc("search_photos_semantic", {
+      query_embedding: queryEmbedding,
+      match_threshold: threshold,
+      match_count: limit,
+    });
+    if (error) return [];
+    return (data as SemanticMatch[]) || [];
+  } catch {
+    return [];
+  }
 }
 
 export async function saveMatchSession(params: {
@@ -136,15 +147,19 @@ export async function getPhotosByDriveFileIds(
   driveFileIds: string[],
 ): Promise<PhotoRow[]> {
   if (driveFileIds.length === 0) return [];
-  const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("photos")
-    .select("*")
-    .in("drive_file_id", driveFileIds)
-    .eq("status", "completed")
-    .neq("hidden", true);
-  if (error) return [];
-  return (data as PhotoRow[]) || [];
+  try {
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from("photos")
+      .select("*")
+      .in("drive_file_id", driveFileIds)
+      .eq("status", "completed")
+      .neq("hidden", true);
+    if (error) return [];
+    return (data as PhotoRow[]) || [];
+  } catch {
+    return [];
+  }
 }
 
 export interface MatchActivityRow {

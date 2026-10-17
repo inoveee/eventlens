@@ -130,6 +130,26 @@ docker build -t face-api .
 
 Uses InsightFace's `buffalo_l` model (512-dim embeddings). Needs ~2GB RAM, 30-60s cold start for model download.
 
+#### Local run (no Docker)
+
+For development the service runs directly with `venv` (macOS, Python ≥ 3.13):
+
+```bash
+cd services/face-api
+./run-local.sh            # http://localhost:8090, model buffalo_l
+```
+
+The script creates `.venv` from `requirements-local.txt` on first run and downloads
+the model weights to `~/.insightface/models/buffalo_l` (~300MB, one-time). Then point
+the app at it:
+
+```bash
+FACE_API_URL="http://localhost:8090"
+FACE_API_SECRET="<any random string, e.g. openssl rand -hex 24>"
+```
+
+Verify: `curl -H "Authorization: Bearer <secret>" http://localhost:8090/health`
+
 ### Environment
 
 ```bash

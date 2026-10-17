@@ -33,6 +33,7 @@ yarn-error.log*
 # python (face-api service)
 __pycache__/
 services/face-api/__pycache__/
+services/face-api/.venv/
 *.pyc
 
 # claude code config
