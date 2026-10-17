@@ -9,6 +9,7 @@ import os
 import sys
 import base64
 import io
+import shutil
 import tarfile
 import urllib.request
 import numpy as np
@@ -72,6 +73,62 @@ MODEL_URL = os.environ.get(
 )
 
 
+def _download_buffalo_l() -> str:
+    """Stream buffalo_l weights straight from the GitHub release into the
+    first writable destination. The archive is NEVER staged on disk as a
+    tgz: the first boot died with ENOSPC halfway through writing a 176MB
+    temp file, so only the two .onnx members (~191MB) are extracted,
+    one after another, straight out of the HTTP stream. flock keeps
+    concurrent gunicorn workers from downloading in parallel."""
+    import fcntl
+
+    lock_fd = open("/tmp/buffalo_l.lock", "w")
+    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    try:
+        dests = (
+            _BUNDLED_HOME,  # image layer — обычный диск, не RAM
+            os.path.expanduser("~/.insightface"),
+            _TMP_HOME,  # на случай, если /tmp — не tmpfs
+        )
+        for dest in dests:  # воркер, ждавший лок, просто берёт готовое
+            if os.path.isdir(os.path.join(dest, "models", "buffalo_l")):
+                return dest
+
+        # Диагностика места: если качать некуда, цифры попадут в лог
+        # деплоя (layero diagnose) и сразу покажут, сколько где свободно.
+        for path in ("/", "/tmp", _BASE_DIR):
+            try:
+                usage = shutil.disk_usage(path)
+                print(
+                    f"[space] {path}: total={usage.total // 2**20}MB free={usage.free // 2**20}MB",
+                    flush=True,
+                )
+            except OSError as exc:
+                print(f"[space] {path}: {exc}", flush=True)
+
+        last_error: Exception | None = None
+        for dest in dests:
+            try:
+                print(f"[face-api] streaming buffalo_l -> {dest}", flush=True)
+                with urllib.request.urlopen(MODEL_URL, timeout=60) as resp:
+                    with tarfile.open(fileobj=resp, mode="r|gz") as tar:
+                        tar.extractall(
+                            dest,
+                            filter=lambda m, p: m
+                            if m.isfile() and m.name.endswith(".onnx")
+                            else None,
+                        )
+                print("[face-api] models ready", flush=True)
+                return dest
+            except OSError as exc:  # ENOSPC и прочие ошибки ФС — дальше по списку
+                last_error = exc
+                print(f"[face-api] {dest}: {exc}", flush=True)
+        raise RuntimeError(f"buffalo_l download failed: {last_error}")
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
+
+
 def _resolve_model_root() -> str:
     model = os.environ.get("INSIGHTFACE_MODEL", "buffalo_sc")
     for home in (_BUNDLED_HOME, _TMP_HOME, os.path.expanduser("~/.insightface")):
@@ -79,18 +136,7 @@ def _resolve_model_root() -> str:
             return home
     if model != "buffalo_l":
         return _BUNDLED_HOME  # bundled weights are the fallback for other models
-    os.makedirs(_TMP_HOME, exist_ok=True)
-    tgz_path = "/tmp/buffalo_l.tgz"
-    print(f"[face-api] {model} weights missing — downloading from {MODEL_URL}", flush=True)
-    urllib.request.urlretrieve(MODEL_URL, tgz_path)
-    with tarfile.open(tgz_path) as tar:
-        try:
-            tar.extractall(_TMP_HOME, filter="data")
-        except TypeError:  # Python < 3.11.4 has no filter kwarg
-            tar.extractall(_TMP_HOME)
-    os.remove(tgz_path)
-    print("[face-api] models ready", flush=True)
-    return _TMP_HOME
+    return _download_buffalo_l()
 
 
 MODEL_ROOT = _resolve_model_root()
