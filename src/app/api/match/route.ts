@@ -186,7 +186,12 @@ async function vectorMatch(imageBase64: string, project?: string) {
   const bestFace = embedData.faces.reduce((a, b) => (a.det_score > b.det_score ? a : b));
 
   const { matchFacesByEmbedding } = await import("@/lib/supabase");
-  const faceMatches = await matchFacesByEmbedding(bestFace.embedding, VECTOR_THRESHOLD, 30);
+  // Top-N по строкам face_embeddings (до дедупликации по фото). Замеры
+  // на живой базе: у «героя вечера» >338 настоящих совпадений, у обычного
+  // гостя — единицы; 30 обрезало даже скромные кластеры (несколько лиц
+  // в одном групповом фото съедали лимит строк). 200 покрывает всё
+  // настоящее, чужие выше порога — редкие единичные залеты.
+  const faceMatches = await matchFacesByEmbedding(bestFace.embedding, VECTOR_THRESHOLD, 200);
 
   if (faceMatches.length === 0) {
     const similar = await findSimilarSessions(bestFace.embedding, 0.7, 1);

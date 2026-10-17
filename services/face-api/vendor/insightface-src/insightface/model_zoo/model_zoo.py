@@ -24,12 +24,13 @@ class PickableInferenceSession(onnxruntime.InferenceSession):
     def __init__(self, model_path, **kwargs):
         # Квота контейнера — 1 core; без ограничений ORT/OMP берут
         # intra-op по числу ядер ХОСТА (8-12) и инференс разбирается по
-        # десяткам секунд на проход из-за оверсабскрипшна. Арену CPU
-        # выключаем — в 1GB RAM она стоит дорого, а latency почти не
-        # меняется на наших размерах входа.
+        # десяткам секунд на проход из-за оверсабскрипшна. Замеры на
+        # проде: intra_op=1 быстрее intra_op=2 (3.7-5.0s vs 5.7-7.8s).
+        # Арену CPU выключаем — в 1GB RAM она стоит дорого, а latency
+        # почти не меняется на наших размерах входа.
         if "sess_options" not in kwargs:
             so = onnxruntime.SessionOptions()
-            so.intra_op_num_threads = int(os.environ.get("ORT_INTRA_OP_THREADS", "2"))
+            so.intra_op_num_threads = int(os.environ.get("ORT_INTRA_OP_THREADS", "1"))
             so.inter_op_num_threads = 1
             so.enable_cpu_mem_arena = False
             so.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL

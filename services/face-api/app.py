@@ -18,10 +18,11 @@ import urllib.request
 # Квота контейнера — 1 core. Без этих лимитов OpenMP/BLAS/ORT берут
 # потоки по числу ядер ХОСТА (8-12) и один инференс растягивается на
 # десятки секунд из-за оверсабскрипшна на чужих ядрах. Ставим ДО
-# импорта numpy/cv2/onnxruntime.
-os.environ.setdefault("OMP_NUM_THREADS", "2")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
-os.environ.setdefault("MKL_NUM_THREADS", "2")
+# импорта numpy/cv2/onnxruntime. Замеры на проде: intra_op=1 даёт
+# get 3.7-5.0s против 5.7-7.8s при intra_op=2.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 import numpy as np
 import cv2  # type: ignore[import-untyped]
