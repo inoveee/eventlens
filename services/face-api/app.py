@@ -11,6 +11,8 @@ import base64
 import io
 import shutil
 import tarfile
+import threading
+import time
 import urllib.request
 import numpy as np
 import cv2  # type: ignore[import-untyped]
@@ -139,34 +141,64 @@ def _resolve_model_root() -> str:
     return _download_buffalo_l()
 
 
-MODEL_ROOT = _resolve_model_root()
-
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
 ALLOWED_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
 CORS(app, origins=ALLOWED_ORIGINS)
 
-# Initialize InsightFace (same pipeline as the Colab notebook, compact
-# bundle). Only detection + recognition are used — skip gender/age/
-# landmark modules to cut cold start and RAM.
+# Initialize InsightFace in a BACKGROUND THREAD: the 176MB buffalo_l
+# download plus the w600k_r50 session build take minutes on a 1 vCPU
+# instance, and the deploy health check only gives the port a short
+# window to answer — a blocking init made every deploy fail with
+# «the port opened but never replied». The port serves immediately:
+# /health reports "starting" while loading, and /embed waits (bounded)
+# or answers 503. Only detection + recognition are loaded.
 # NOTE: buffalo_sc embeddings (w600k_mbf, 512-dim) are a different space
 # from buffalo_l (w600k_r50) — the DB embeddings must come from the same
 # model this service runs.
 MODEL_NAME = os.environ.get("INSIGHTFACE_MODEL", "buffalo_sc")
-face_app = FaceAnalysis(
-    name=MODEL_NAME,
-    root=MODEL_ROOT,
-    providers=["CPUExecutionProvider"],
-    allowed_modules=["detection", "recognition"],
-)
-face_app.prepare(ctx_id=0, det_size=(640, 640))
+_BOOT_T0 = time.time()
+_MODEL_STATE: dict = {"ready": False, "error": None}
+face_app = None
+
+
+def _init_models() -> None:
+    global face_app, MODEL_ROOT
+    try:
+        MODEL_ROOT = _resolve_model_root()
+        fa = FaceAnalysis(
+            name=MODEL_NAME,
+            root=MODEL_ROOT,
+            providers=["CPUExecutionProvider"],
+            allowed_modules=["detection", "recognition"],
+        )
+        fa.prepare(ctx_id=0, det_size=(640, 640))
+        face_app = fa
+        _MODEL_STATE["ready"] = True
+        print(
+            f"[face-api] {MODEL_NAME} ready ({time.time() - _BOOT_T0:.0f}s)",
+            flush=True,
+        )
+    except Exception as exc:  # /health ответит 500 — деплой упадёт явно
+        _MODEL_STATE["error"] = str(exc)
+        print(f"[face-api] model init failed: {exc}", flush=True)
+
+
+threading.Thread(target=_init_models, daemon=True).start()
 
 API_SECRET = os.environ.get("API_SECRET", "")
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    """Return service health status and model info."""
+    """Liveness: 200, как только порт обслуживает запросы (модель ещё
+    может грузиться в фоне). 500 — только при ошибке инициализации."""
+    if _MODEL_STATE["error"]:
+        return jsonify(
+            {"status": "error", "model": MODEL_NAME, "error": _MODEL_STATE["error"]}
+        ), 500
+    if not _MODEL_STATE["ready"]:
+        return jsonify({"status": "starting", "model": MODEL_NAME, "dims": None}), 200
     return jsonify({"status": "ok", "model": MODEL_NAME, "dims": 512})
 
 
@@ -179,6 +211,20 @@ def embed():
         token = auth.replace("Bearer ", "")
         if token != API_SECRET:
             return jsonify({"error": "Unauthorized"}), 401
+
+    # Холодный старт: веса качаются и собираются в фоне. Подождём
+    # готовности (в пределах gunicorn --timeout 180), затем — 503.
+    deadline = time.time() + 150
+    while (
+        not _MODEL_STATE["ready"]
+        and _MODEL_STATE["error"] is None
+        and time.time() < deadline
+    ):
+        time.sleep(1)
+    if _MODEL_STATE["error"]:
+        return jsonify({"error": "Model failed to initialize"}), 503
+    if not _MODEL_STATE["ready"]:
+        return jsonify({"error": "Model is still loading"}), 503
 
     # Body: raw image bytes (preferred — no JSON keys for the hosting
     # proxy's AI-vision fingerprint blocklist to match) or legacy JSON
