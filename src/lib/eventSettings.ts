@@ -414,6 +414,10 @@ function effectiveLuminance(hero: HeroSettings): number {
 
 export interface HeroTokens {
   "--el-hero-bg"?: string;
+  /** Размер фоновой картинки hero (см. .el-hero): cover/contain по
+   *  выбору организатора. Без этого токена остаётся `auto` и обложка
+   *  не заполняет блок. */
+  "--el-hero-size"?: string;
   "--el-hero-scrim": string;
   "--el-hero-text": string;
   "--el-hero-dim": string;
@@ -433,6 +437,9 @@ export function heroTokens(hero: HeroSettings): HeroTokens {
   const t = text === "#ffffff" ? "255,255,255" : "10,10,10";
   return {
     ...(bg ? { "--el-hero-bg": bg } : {}),
+    ...(bg && hero.mode === "image"
+      ? { "--el-hero-size": hero.imageFit === "contain" ? "contain" : "cover" }
+      : {}),
     "--el-hero-scrim": heroScrimValue(hero.overlay),
     "--el-hero-text": text,
     "--el-hero-dim": `rgba(${t}, 0.62)`,

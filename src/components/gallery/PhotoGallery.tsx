@@ -158,12 +158,10 @@ export default function PhotoGallery() {
     handleClearMatch: handleClearMatchWithFilterReset,
   }), [search, handleMatchResultsWithFilterReset, handleClearMatchWithFilterReset]);
 
-  // Главная без чипов (нет реальных папок/тегов): строка сверху не нужна —
-  // в ней одиноко «прилипала» бы кнопка «Выбрать». Она уходит в шапку
-  // секции (Избранное либо Общий альбом), к заголовку по левому краю.
-  const hasChips = realFolders.length > 0 || photos.tags.length > 0;
-  const inlineSelect = isHome && !hasChips;
-  const showTabsRow = !isHome || hasChips;
+  // Строка управления (чипы альбомов/тегов слева, «Выбрать» справа) рисуется
+  // всегда — иначе кнопка вшивается в шапку первого блока галереи и визуально
+  // «прилипает» к нему, а вёрстка прыгает при появлении избранного.
+  const showControlsRow = !photos.loading && !photos.error && photos.allPhotos.length > 0;
   const selectToggleBtn = (
     <button
       onClick={selection.toggleSelectMode}
@@ -186,7 +184,7 @@ export default function PhotoGallery() {
         totalPhotos={photos.allPhotos.length}
       />
 
-      {!photos.loading && !photos.error && photos.allPhotos.length > 0 && showTabsRow && (
+      {showControlsRow && (
         <div className="mx-auto max-w-5xl px-3 md:px-4 pb-2 md:pb-4 space-y-1.5 md:space-y-2">
           {/* Одна линия: чипы альбомов слева, «Выбрать» справа */}
           <div className="flex items-center justify-between gap-3">
@@ -199,7 +197,7 @@ export default function PhotoGallery() {
                 folderCounts={filters.folderCounts}
               />
             </div>
-            {!inlineSelect && selectToggleBtn}
+            {selectToggleBtn}
           </div>
           <TagTabs
             tags={photos.tags}
@@ -222,7 +220,7 @@ export default function PhotoGallery() {
 
       <main
         id="gallery"
-        className={`mx-auto max-w-5xl px-3 pb-16 md:px-4 md:pb-12${showTabsRow ? "" : " pt-6 md:pt-8"}`}
+        className="mx-auto max-w-5xl px-3 pb-16 md:px-4 md:pb-12 pt-4 md:pt-6"
       >
         {photos.loading && <GridSkeleton />}
 
@@ -243,11 +241,6 @@ export default function PhotoGallery() {
               hotPhotoIds={stats.hotPhotoIds}
               onPhotoClick={handlePhotoClick}
               onToggleSelect={selection.togglePhoto}
-              actions={
-                inlineSelect && favoritePhotos.length > 0
-                  ? selectToggleBtn
-                  : undefined
-              }
             />
             <AlbumGrid
               folders={realFolders}
@@ -264,11 +257,6 @@ export default function PhotoGallery() {
               onPhotoClick={handlePhotoClick}
               onToggleSelect={selection.togglePhoto}
               onBrowseAll={() => filters.setBrowseAll(true)}
-              actions={
-                inlineSelect && favoritePhotos.length === 0
-                  ? selectToggleBtn
-                  : undefined
-              }
             />
           </>
         )}

@@ -31,8 +31,19 @@ function PhotoCardInner({
   selected,
   isHot,
 }: PhotoCardProps) {
-  const [imgError, setImgError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
+  // Превью-ссылки Яндекса иногда отдают одноразовую 500 при массовой
+  // загрузке — два ретрая с паузой, и только после них карточка
+  // остаётся плейсхолдером (раньше первый же сбой «замораживал» её).
+  const MAX_ATTEMPTS = 3;
+  const exhausted = attempt >= MAX_ATTEMPTS;
+  const src = photo.thumbnailUrl || photo.fullsizeUrl || "";
+
+  const handleError = () => {
+    if (attempt + 1 >= MAX_ATTEMPTS) return;
+    window.setTimeout(() => setAttempt((a) => a + 1), 600 * (attempt + 1));
+  };
 
   return (
     <button
@@ -46,7 +57,7 @@ function PhotoCardInner({
       }`}
       style={index < 40 ? { '--delay': `${index * 0.03}s` } as React.CSSProperties : undefined}
     >
-      {imgError || !photo.thumbnailUrl ? (
+      {!src || exhausted ? (
         <div className="flex h-full w-full items-center justify-center bg-[var(--el-surface)]">
           <span className="text-[var(--el-t-primary-22)] text-2xl">+</span>
         </div>
@@ -56,7 +67,8 @@ function PhotoCardInner({
             <div className="absolute inset-0 bg-[var(--el-surface)] animate-pulse" />
           )}
           <Image
-            src={photo.thumbnailUrl}
+            key={`${src}|${attempt}`}
+            src={src}
             alt={photo.filename}
             fill
             unoptimized
@@ -66,7 +78,7 @@ function PhotoCardInner({
               !imgLoaded ? "opacity-0" : selected ? "opacity-70" : "opacity-100"
             }`}
             onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
+            onError={handleError}
           />
         </>
       )}

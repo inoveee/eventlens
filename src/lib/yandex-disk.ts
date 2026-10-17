@@ -11,6 +11,9 @@ export interface YandexFile {
   size: number;
   /** Direct URLs for preview sizes (S…XXL) plus ORIGINAL. */
   sizes: Array<{ name: string; url: string }>;
+  /** Universal preview link from the API — present even when `sizes` is
+   *  empty (fresh uploads, videos), so the grid never falls back to «+». */
+  preview?: string;
 }
 
 export interface YandexFolder {
@@ -51,6 +54,7 @@ interface YandexResourceItem {
   modified?: string;
   size?: number;
   sizes?: Array<{ name: string; url: string }>;
+  preview?: string;
 }
 
 interface YandexResourceResponse {
@@ -100,6 +104,7 @@ export async function listYandexImages(
           modified: item.modified,
           size: item.size || 0,
           sizes: item.sizes || [],
+          preview: item.preview || "",
         });
       }
 
@@ -154,9 +159,11 @@ export function pickSizeUrl(
   return sizes[0]?.url || "";
 }
 
-/** Thumbnail for grid cards (~640px, matches Drive's w640). */
+/** Thumbnail for grid cards (~640px, matches Drive's w640).
+ *  `sizes` is preferred; when it's empty the API's `preview` link keeps
+ *  the card from rendering as a permanent «+» placeholder. */
 export function yandexThumbUrl(file: YandexFile): string {
-  return pickSizeUrl(file.sizes, ["XL", "L", "M"]);
+  return pickSizeUrl(file.sizes, ["XL", "L", "M"]) || file.preview || "";
 }
 
 /** Full-size URL for the lightbox (~1024px+, matches Drive's w1200). */
