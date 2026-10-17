@@ -74,7 +74,7 @@ async function vectorMatch(imageBase64: string) {
     embedRes = await fetch(`${FACE_API_URL}/embed`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ image: imageBase64 }),
+      body: JSON.stringify({ img: imageBase64 }),
       signal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
     });
   } catch {

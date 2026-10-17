@@ -34,6 +34,9 @@ yarn-error.log*
 __pycache__/
 services/face-api/__pycache__/
 services/face-api/.venv/
+# бандл весов buffalo_l для публичного деплоя (упаковывается через
+# .layeroignore, в git не попадает)
+services/face-api/insightface/
 *.pyc
 
 # claude code config

@@ -1,0 +1,8 @@
+# Packing rules for the standalone face-api deploy (replaces .gitignore
+# for this folder): the buffalo_l weights under insightface/ MUST ship.
+.venv/
+__pycache__/
+*.pyc
+run-local.sh
+requirements-local.txt
+Dockerfile

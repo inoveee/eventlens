@@ -11,6 +11,15 @@ import numpy as np
 import cv2  # type: ignore[import-untyped]
 from flask import Flask, request, jsonify  # type: ignore[import-untyped]
 from flask_cors import CORS  # type: ignore[import-untyped]
+
+# Weights may be bundled next to the app (platform deploy archives are
+# ephemeral, so buffalo_l ships inside the folder). Set INSIGHTFACE_HOME
+# before importing insightface — it reads the env at import time.
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_BUNDLED_HOME = os.path.join(_BASE_DIR, "insightface")
+if os.path.isdir(os.path.join(_BUNDLED_HOME, "models", "buffalo_l")):
+    os.environ.setdefault("INSIGHTFACE_HOME", _BUNDLED_HOME)
+
 from insightface.app import FaceAnalysis  # type: ignore[import-untyped]
 
 app = Flask(__name__)
@@ -18,9 +27,15 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
 ALLOWED_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
 CORS(app, origins=ALLOWED_ORIGINS)
 
-# Initialize InsightFace (same model as Colab notebook)
+# Initialize InsightFace (same model as Colab notebook).
+# Only detection + recognition are used — skip gender/age/landmark modules
+# to cut cold start and RAM roughly in half.
 MODEL_NAME = os.environ.get("INSIGHTFACE_MODEL", "buffalo_l")
-face_app = FaceAnalysis(name=MODEL_NAME, providers=["CPUExecutionProvider"])
+face_app = FaceAnalysis(
+    name=MODEL_NAME,
+    providers=["CPUExecutionProvider"],
+    allowed_modules=["detection", "recognition"],
+)
 face_app.prepare(ctx_id=0, det_size=(640, 640))
 
 API_SECRET = os.environ.get("API_SECRET", "")
@@ -43,11 +58,17 @@ def embed():
             return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
-    if not data or "image" not in data:
-        return jsonify({"error": "Missing 'image' (base64)"}), 400
+    # `img` is the field the EventLens server sends: the hosting proxy
+    # fingerprints JSON bodies pairing an `image` key with `mime*` keys,
+    # so both sides avoid that shape. Legacy `image` still accepted.
+    image_b64 = None
+    if data:
+        image_b64 = data.get("img") or data.get("image")
+    if not image_b64:
+        return jsonify({"error": "Missing 'img' (base64)"}), 400
 
     try:
-        img_bytes = base64.b64decode(data["image"])
+        img_bytes = base64.b64decode(image_b64)
         nparr = np.frombuffer(img_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 

@@ -52,7 +52,7 @@ export class FaceApiClient {
     const res = await fetch(`${this.baseUrl}/embed`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({ image: base64Image }),
+      body: JSON.stringify({ img: base64Image }),
       signal: AbortSignal.timeout(60_000),
     });
 
