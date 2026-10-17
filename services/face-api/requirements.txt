@@ -1,7 +1,13 @@
+# Platform (Layero python_web) dependencies — Python 3.12.
+#
+# insightface is installed from the bundled pure-python wheel: the sdist
+# compiles a Cython extension (face3d mesh — unused by FaceAnalysis) and
+# the platform's builder image has no g++. The wheel keeps the exact same
+# runtime code, so embeddings match the standard insightface 0.7.3 ones.
 flask==3.1.1
 flask-cors==5.0.1
-insightface==0.7.3
 onnxruntime==1.22.0
 opencv-python-headless==4.11.0.86
 numpy==1.26.4
 gunicorn==23.0.0
+/app/wheels/insightface-0.7.3-py3-none-any.whl
