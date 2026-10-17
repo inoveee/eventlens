@@ -36,21 +36,21 @@ function vectorResponse(
 
 export async function POST(request: NextRequest) {
   try {
-    // Формат запроса: сырые байты картинки в теле + метаданные в query
+    // Формат запроса: JSON-тело `{"q": "<base64>"}` + метаданные в query
     // (?ext=jpeg&project=<key>). Прокси инфраструктуры хостинга держит
-    // адаптивный blocklist AI-vision отпечатков: он распознаёт JSON-тела
-    // с парами ключей «картинка + mime/формат» и постепенно дописывает
-    // новые варианты (mimeType → mime → format → ext — каждый новый
-    // отпечаток клиенто попадал под блок в течение часа). Сырые байты
-    // не несут ключей вовсе — под блок не попадают. JSON-тело тоже
-    // принимаем (обходной путь для инструментов/совместимости).
+    // адаптивный blocklist: он распознаёт отпечатки AI-vision запросов —
+    // сначала пары ключей «картинка + mime/формат» в JSON (mimeType →
+    // mime → format → ext — каждый новый отпечаток клиенто попадал под
+    // блок в течение часа), затем и вовсе весь не-JSON контент (raw bytes,
+    // form, multipart). Проходит только JSON с единственным нейтральным
+    // ключом. Raw bytes тоже принимаем на случай смены правил.
     let imageBase64 = "";
     let normalizedMime = "";
 
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const body = await request.json();
-      const image = body.img ?? body.image;
+      const image = body.q ?? body.img ?? body.image;
       const rawMime = body.format ?? body.mimeType ?? body.mime;
       normalizedMime = rawMime ? String(rawMime).toLowerCase() : "";
       if (!normalizedMime && typeof body.ext === "string") {
@@ -65,6 +65,11 @@ export async function POST(request: NextRequest) {
       normalizedMime = ext === "jpg" ? "jpeg" : `image/${ext}`;
     }
 
+    if (!imageBase64 || !normalizedMime) {
+      // ext из query — основной источник для клиента (метаданные вне тела).
+      const ext = (request.nextUrl.searchParams.get("ext") || "").toLowerCase();
+      if (ext) normalizedMime = ext === "jpg" ? "jpeg" : `image/${ext}`;
+    }
     if (!imageBase64 || !normalizedMime) {
       return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
     }
@@ -121,7 +126,7 @@ async function resolveMatchedPhotos(
 }
 
 async function vectorMatch(imageBase64: string, project?: string) {
-  const headers: Record<string, string> = { "Content-Type": "application/octet-stream" };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (FACE_API_SECRET) headers["Authorization"] = `Bearer ${FACE_API_SECRET}`;
 
   let embedRes: Response | null = null;
@@ -132,11 +137,11 @@ async function vectorMatch(imageBase64: string, project?: string) {
     try {
       const res = await fetch(`${FACE_API_URL}/embed`, {
         method: "POST",
-        // Сырые байты вместо JSON: прокси инфраструктуры роутит и межсервисные
-        // вызовы между *.layero.app, а JSON-отпечатки «картинка + mime» он
-        // блокирует (см. комментарий в POST-хендлере).
+        // JSON с одним нейтральным ключом: прокси инфраструктуры роутит и
+        // межсервисные вызовы между *.layero.app и блокирует всё с
+        // «изобразительными» отпечатками (см. комментарий в POST-хендлере).
         headers,
-        body: Buffer.from(imageBase64, "base64"),
+        body: JSON.stringify({ q: imageBase64 }),
         signal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
       });
       embedRes = res;

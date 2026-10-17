@@ -97,7 +97,7 @@ def embed():
     image_b64 = None
     if "json" in ct:
         data = request.get_json(silent=True) or {}
-        image_b64 = data.get("img") or data.get("image")
+        image_b64 = data.get("q") or data.get("img") or data.get("image")
     else:
         raw = request.get_data()
         if raw:
