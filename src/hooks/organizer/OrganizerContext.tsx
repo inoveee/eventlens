@@ -19,6 +19,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,6 +37,10 @@ import {
 import { storeDraftForPreview } from "@/components/EventSettingsProvider";
 
 const SECRET_STORAGE_KEY = "el-organizer-secret";
+
+// На сервере useLayoutEffect недоступен; до первой отрисовки в браузере
+// он применяется, чтобы залогиненная вкладка не мигала экраном загрузки.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export type PublishStatus = {
   label: string;
@@ -98,8 +103,11 @@ export function OrganizerAuthProvider({ children }: { children: React.ReactNode 
     return res.ok;
   }, []);
 
-  // Скрытый вход: секрет из этой вкладки (sessionStorage).
-  useEffect(() => {
+  // Скрытый вход: секрет из этой вкладки (sessionStorage). Если он есть,
+  // показываем панель сразу (до первой отрисовки), а подлинность пароля
+  // проверяем в фоне — переходы по панели и перезагрузка не показывают
+  // экран «Проверяем вход…».
+  useIsoLayoutEffect(() => {
     let stored = "";
     try {
       stored = sessionStorage.getItem(SECRET_STORAGE_KEY) || "";
@@ -109,18 +117,25 @@ export function OrganizerAuthProvider({ children }: { children: React.ReactNode 
       return;
     }
     setSecretState(stored);
+    setAuthenticated(true);
+    setChecking(false);
+    let cancelled = false;
     probeAuth(stored)
       .then((ok) => {
-        if (ok) {
-          setAuthenticated(true);
-        } else {
-          try {
-            sessionStorage.removeItem(SECRET_STORAGE_KEY);
-          } catch {}
-          setSecretState("");
-        }
+        if (cancelled || ok) return;
+        try {
+          sessionStorage.removeItem(SECRET_STORAGE_KEY);
+        } catch {}
+        setAuthenticated(false);
+        setSecretState("");
+        setAuthError("Пароль не подошёл — войдите заново");
       })
-      .finally(() => setChecking(false));
+      .catch(() => {
+        // Сеть моргнула — оставляем сессию: сервер откажет на запросах сам.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [probeAuth]);
 
   const setSecret = useCallback((value: string) => {
@@ -498,14 +513,18 @@ export function OrganizerProvider({
   );
 
   const openPublicPage = useCallback(() => {
-    window.open(publicUrl(), "_blank", "noopener");
+    // Именованная вкладка: повторное открытие не просто показывает старую
+    // вкладку, а перезагружает её — после публикации всегда свежая версия.
+    const win = window.open(publicUrl(), "el-public-page");
+    if (win) win.opener = null;
   }, [publicUrl]);
 
   /** Черновик кладётся в localStorage — новая вкладка откроется с
    *  «/p/<key>?preview=1» и покажет его вместо опубликованного. */
   const openPreview = useCallback(() => {
     storeDraftForPreview(draft, projectKey);
-    window.open(`${publicUrl()}?preview=1`, "_blank", "noopener");
+    const win = window.open(`${publicUrl()}?preview=1`, "el-preview-page");
+    if (win) win.opener = null;
   }, [draft, projectKey, publicUrl]);
 
   // Не даём закрыть вкладку с несохранёнными правками.

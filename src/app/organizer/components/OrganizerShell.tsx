@@ -55,7 +55,6 @@ export default function OrganizerShell({ children }: { children: ReactNode }) {
     save,
     publish,
     openPublicPage,
-    openPreview,
     busy,
     reload,
   } = useOrganizer();
@@ -141,7 +140,7 @@ export default function OrganizerShell({ children }: { children: ReactNode }) {
 
             <nav className="flex flex-col gap-1">
               {NAV.map((item) => (
-                <a
+                <Link
                   key={item.href}
                   href={item.href}
                   className="org-nav-item"
@@ -149,7 +148,7 @@ export default function OrganizerShell({ children }: { children: ReactNode }) {
                 >
                   {item.icon}
                   <span className="truncate">{item.label}</span>
-                </a>
+                </Link>
               ))}
             </nav>
 
@@ -202,13 +201,6 @@ export default function OrganizerShell({ children }: { children: ReactNode }) {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={openPreview}
-                    className="org-btn org-btn-secondary"
-                    title="Открыть страницу с текущим черновиком"
-                  >
-                    Предпросмотр
-                  </button>
-                  <button
                     onClick={openPublicPage}
                     className="org-btn org-btn-secondary"
                     title="Открыть публичную страницу проекта"
@@ -235,7 +227,7 @@ export default function OrganizerShell({ children }: { children: ReactNode }) {
               {/* Мобильная навигация */}
               <nav className="scrollbar-hide flex gap-1 overflow-x-auto px-4 pb-2.5 lg:hidden">
                 {NAV.map((item) => (
-                  <a
+                  <Link
                     key={item.href}
                     href={item.href}
                     className="org-nav-item shrink-0"
@@ -243,7 +235,7 @@ export default function OrganizerShell({ children }: { children: ReactNode }) {
                   >
                     {item.icon}
                     <span>{item.label}</span>
-                  </a>
+                  </Link>
                 ))}
               </nav>
             </header>

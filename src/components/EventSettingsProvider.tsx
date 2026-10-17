@@ -2,9 +2,9 @@
 // Публичная страница читает опубликованные настройки организатора и
 // применяет их: CSS-переменные оформления + контекст с текстами.
 //
-// Режим предпросмотра: кнопка «Предпросмотр» в админке кладёт черновик
-// в localStorage и открывает «/?preview=1». Черновик виден только в этой
-// вкладке посетителя с этим параметром — другим гостям он не показывается.
+// Режим предпросмотра: предпросмотр в админке кладёт черновик
+// в localStorage и открывает «/p/<key>?preview=1». Черновик виден только в
+// этой вкладке посетителя с этим параметром — другим гостям он не показывается.
 //
 // Если настроек нет или запрос не удался, страница работает ровно так же,
 // как и раньше (значения из окружения проекта).
@@ -112,8 +112,21 @@ export default function EventSettingsProvider({
       }
     }
 
-    fetch(`/api/event/settings?project=${encodeURIComponent(projectKey)}`)
-      .then((res) => (res.ok ? res.json() : null))
+    const attempt = () =>
+      fetch(`/api/event/settings?project=${encodeURIComponent(projectKey)}`, {
+        cache: "no-store",
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null);
+
+    // Один повтор: однократный сбой сети или сервера не оставляет
+    // страницу без опубликованных настроек.
+    attempt()
+      .then(
+        (data) =>
+          data ??
+          new Promise((r) => setTimeout(r, 1500)).then(() => attempt()),
+      )
       .then((data) => {
         if (!cancelled && data && data.published) {
           setPublished(data.published as EventSettings);

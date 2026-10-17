@@ -5,6 +5,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useOrganizer } from "@/hooks/organizer/OrganizerContext";
 import { SectionHeader, StatTile } from "@/app/organizer/components/ui";
 import { defaultEventSettings, settingsEqual } from "@/lib/eventSettings";
@@ -28,7 +29,6 @@ export default function OverviewPage() {
     status,
     unsavedChanges,
     unpublishedChanges,
-    openPreview,
     openPublicPage,
     save,
     publish,
@@ -128,9 +128,6 @@ export default function OverviewPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button className="org-btn org-btn-secondary" onClick={openPreview}>
-                Предпросмотр
-              </button>
               <button className="org-btn org-btn-secondary" onClick={openPublicPage}>
                 Открыть страницу
               </button>
@@ -223,9 +220,9 @@ export default function OverviewPage() {
             </p>
           )}
           <div className="mt-auto pt-4">
-            <a href={`${projectBase}/photos`} className="org-btn org-btn-secondary w-full">
+            <Link href={`${projectBase}/photos`} className="org-btn org-btn-secondary w-full">
               {photos?.status === "connected" ? "Управление фото" : "Подключить фото"}
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -269,7 +266,7 @@ export default function OverviewPage() {
               ) : step.key === "preview" ? (
                 <button
                   className="org-btn org-btn-ghost shrink-0 text-[13px]"
-                  onClick={openPreview}
+                  onClick={openPublicPage}
                 >
                   Открыть
                 </button>
