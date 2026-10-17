@@ -185,8 +185,10 @@ export default function PhotoGallery() {
       />
 
       {showControlsRow && (
-        <div className="mx-auto max-w-5xl px-3 md:px-4 pb-2 md:pb-4 space-y-1.5 md:space-y-2">
-          {/* Одна линия: чипы альбомов слева, «Выбрать» справа */}
+        <div className="mx-auto max-w-5xl px-3 pt-4 md:pt-6 pb-2 md:pb-4 space-y-1.5 md:space-y-2">
+          {/* Одна линия: чипы альбомов слева, «Выбрать» справа. pt — зазор
+              от нижней границы героя: без него кнопка визуально прилипала
+              к фотобаннеру (верх кнопки = низ героя ровно). */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <FolderTabs

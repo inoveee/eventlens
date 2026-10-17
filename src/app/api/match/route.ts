@@ -15,7 +15,9 @@ const EMBED_TIMEOUT_MS = 25_000;
 // genuine same-person pairs — including cross-day phone shots with
 // hat/glasses — land at 0.55–0.7, while impostors top out at ~0.45.
 const VECTOR_THRESHOLD = 0.55;
-const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+// heic/heif — формат камеры iPhone «как есть»; декодер на стороне face-api
+// (Pillow + pillow-heif), роуту достаточно пропустить формат дальше.
+const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
 const MAX_BASE64_SIZE = 10 * 1024 * 1024;
 
 function vectorResponse(
