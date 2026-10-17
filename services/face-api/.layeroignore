@@ -8,4 +8,6 @@ __pycache__/
 run-local.sh
 requirements-local.txt
 Dockerfile
-insightface/
+# Anchored to the deploy root: un-anchored `insightface/` would also match
+# vendor/insightface-src/insightface (the vendored package).
+/insightface/
