@@ -23,8 +23,25 @@ export default function StartScreen() {
     if (!checking && authenticated && stage === "intro") setStage("app");
   }, [checking, authenticated, stage]);
 
+  // Кнопка «Войти» раньше только меняла stage — история браузера не
+  // пополнялась, и «назад» с экрана авторизации ничего не делал (или
+  // уносил с сайта). Теперь вход пушит запись {screen:"auth"}; popstate
+  // возвращает на интро (Forward — снова на вход). Reload на входе
+  // восстанавливает stage из history.state.
+  useEffect(() => {
+    if (history.state?.screen === "auth") setStage("app");
+    const onPopState = () => {
+      setStage(history.state?.screen === "auth" ? "app" : "intro");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const openLogin = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    if (history.state?.screen !== "auth") {
+      history.pushState({ screen: "auth" }, "", window.location.href);
+    }
     setStage("app");
   }, []);
 
