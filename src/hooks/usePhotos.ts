@@ -33,6 +33,36 @@ export function usePhotos(): UsePhotosReturn {
   const [toast, setToast] = useState<{ message: string; count: number } | null>(null);
   const pendingPhotosRef = useRef<PhotoRecord[] | null>(null);
 
+  const cacheKey = `eventlens:photos:${projectKey}`;
+
+  const readCache = useCallback((): PhotosResponse | null => {
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      return raw ? (JSON.parse(raw) as PhotosResponse) : null;
+    } catch {
+      return null;
+    }
+  }, [cacheKey]);
+
+  const writeCache = useCallback(
+    (data: PhotosResponse) => {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
+      } catch {
+        // quota exceeded — кэш просто не сохранится, не критично
+      }
+    },
+    [cacheKey],
+  );
+
+  const applyData = useCallback((data: PhotosResponse) => {
+    setAllPhotos(data.photos);
+    setFolders(data.folders);
+    setTags(data.tags || []);
+    setShuffledPhotos(shuffleArray(data.photos));
+    setLastUpdated(data.lastUpdated);
+  }, []);
+
   const fetchData = useCallback(async (): Promise<PhotosResponse | null> => {
     try {
       const res = await fetch(withProjectParam("/api/photos", projectKey));
@@ -43,22 +73,27 @@ export function usePhotos(): UsePhotosReturn {
     }
   }, [projectKey]);
 
-  // Initial load
+  // Initial load: sessionStorage-кэш рисует галерею мгновенно (повторные
+  // визиты не ждут 5-8с холодного /api/photos), затем фоновый revalidate
+  // приносит актуальные данные. Ошибка сети при наличии кэша — тихо
+  // оставляем старое (offline-friendly).
   useEffect(() => {
+    const cached = readCache();
+    if (cached?.photos?.length) {
+      applyData(cached);
+      setLoading(false);
+    }
     fetchData().then((data) => {
       if (data) {
-        setAllPhotos(data.photos);
-        setFolders(data.folders);
-        setTags(data.tags || []);
-        setShuffledPhotos(shuffleArray(data.photos));
-        setLastUpdated(data.lastUpdated);
+        applyData(data);
+        writeCache(data);
         setLoading(false);
-      } else {
+      } else if (!cached?.photos?.length) {
         setError(true);
         setLoading(false);
       }
     });
-  }, [fetchData]);
+  }, [fetchData, readCache, applyData, writeCache]);
 
   // Polling for new photos
   useEffect(() => {
@@ -74,14 +109,16 @@ export function usePhotos(): UsePhotosReturn {
         setFolders(data.folders);
         setTags(data.tags || []);
         setLastUpdated(data.lastUpdated);
+        writeCache(data);
       } else if (data) {
         setFolders(data.folders);
         setTags(data.tags || []);
         setLastUpdated(data.lastUpdated);
+        writeCache(data);
       }
     }, 30000);
     return () => clearInterval(interval);
-  }, [allPhotos.length, fetchData]);
+  }, [allPhotos.length, fetchData, writeCache]);
 
   const refresh = useCallback(() => {
     if (pendingPhotosRef.current) {
@@ -98,18 +135,15 @@ export function usePhotos(): UsePhotosReturn {
     setLoading(true);
     fetchData().then((data) => {
       if (data) {
-        setAllPhotos(data.photos);
-        setShuffledPhotos(shuffleArray(data.photos));
-        setFolders(data.folders);
-        setTags(data.tags || []);
-        setLastUpdated(data.lastUpdated);
+        applyData(data);
+        writeCache(data);
         setLoading(false);
       } else {
         setError(true);
         setLoading(false);
       }
     });
-  }, [fetchData]);
+  }, [fetchData, applyData, writeCache]);
 
   return {
     allPhotos,

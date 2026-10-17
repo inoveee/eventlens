@@ -4,7 +4,10 @@ import { fetchPhotosWithMetadata, getFolders, getTags } from "@/lib/photos";
 import { resolvePhotoSource } from "@/lib/eventSettingsStore";
 import { coerceProjectKey } from "@/lib/eventSettings";
 
-export const revalidate = 30;
+// Каждые 60с: на холодном кэше полный обход папки Яндекса (5 страниц,
+// теперь параллельных, ~2с). Новые фото гости видят в пределах минуты —
+// клиент опрашивает этот же роут каждые 30с.
+export const revalidate = 60;
 
 export async function GET(request: NextRequest) {
   console.log("[v0] GATE 1: /api/photos request received");
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest) {
     const total = allPhotos.length;
 
     // If limit is specified, return a slice; otherwise return all photos.
-    // ISR cache (revalidate: 30) means the full fetch only runs every 30s.
+    // ISR cache (revalidate: 60) means the full fetch only runs every 60s.
     // Progressive DOM rendering via IntersectionObserver handles the frontend perf.
     const photos = limit > 0 ? allPhotos.slice(offset, offset + limit) : allPhotos;
 

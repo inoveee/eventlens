@@ -320,16 +320,19 @@ export async function projectExists(key: string): Promise<boolean> {
   return record !== null;
 }
 
-/** Обновляет запись существующего проекта. */
+/** Обновляет запись существующего проекта. Один SELECT вместо пары
+ *  projectExists+readRecord (раньше каждый save/publish делал две
+ *  лишние поездки в Supabase). */
 export async function writeRecord(
   key: string,
   patch: Partial<Pick<SettingsRecord, "draft" | "published" | "photos" | "meta">>,
 ): Promise<SettingsRecord> {
   assertKey(key);
-  if (!(await projectExists(key))) {
+  const current =
+    storageEngine() === "supabase" ? await readFromSupabase(key) : await readFileRecord(key);
+  if (current === null) {
     throw new ProjectNotFoundError("Проект не найден");
   }
-  const current = await readRecord(key);
   const next: SettingsRecord = {
     ...current,
     ...patch,

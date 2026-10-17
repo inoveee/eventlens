@@ -66,7 +66,10 @@ interface YandexResourceResponse {
   };
 }
 
-/** Lists one level of a shared folder (files only) with pagination. */
+/** Lists one level of a shared folder (files only) with pagination.
+ *  The first page reveals the total; the remaining pages are fetched in
+ *  PARALLEL — for a 999-photo folder that's 5 sequential roundtrips
+ *  (~5-6s on cold cache) versus one plus a parallel slot (~2s). */
 export async function listYandexImages(
   publicKey: string,
   path = "/",
@@ -75,46 +78,58 @@ export async function listYandexImages(
   const key = normalizePublicKey(publicKey);
   if (!key) return [];
 
-  const files: YandexFile[] = [];
-  let offset = 0;
-  let total = Infinity;
+  const pageUrl = (offset: number) =>
+    `${API}?public_key=${encodeURIComponent(key)}&path=${encodeURIComponent(path)}&limit=${PAGE_SIZE}&offset=${offset}`;
+
+  const toFiles = (items: YandexResourceItem[]): YandexFile[] =>
+    items
+      .filter(
+        (i) =>
+          i.type === "file" &&
+          (i.media_type === "image" || i.media_type === "video"),
+      )
+      .map((item) => ({
+        path: item.path,
+        name: item.name,
+        mimeType: item.mime_type || "",
+        mediaType: item.media_type || "",
+        modified: item.modified,
+        size: item.size || 0,
+        sizes: item.sizes || [],
+        preview: item.preview || "",
+      }));
 
   try {
-    while (offset < total) {
-      const url = `${API}?public_key=${encodeURIComponent(key)}&path=${encodeURIComponent(path)}&limit=${PAGE_SIZE}&offset=${offset}`;
-      const res = await fetch(url, fetchInit(opts));
-      if (!res.ok) break;
+    const first = await fetch(pageUrl(0), fetchInit(opts));
+    if (!first.ok) return [];
+    const firstData: YandexResourceResponse = await first.json();
+    const embedded = firstData._embedded;
+    if (!embedded) return [];
 
-      const data: YandexResourceResponse = await res.json();
-      const embedded = data._embedded;
-      if (!embedded) break;
+    const files = toFiles(embedded.items || []);
+    const total = embedded.total ?? 0;
 
-      total = embedded.total ?? 0;
-      const items = embedded.items || [];
-      if (items.length === 0) break;
-
-      for (const item of items) {
-        if (item.type !== "file") continue;
-        if (item.media_type !== "image" && item.media_type !== "video") continue;
-        files.push({
-          path: item.path,
-          name: item.name,
-          mimeType: item.mime_type || "",
-          mediaType: item.media_type || "",
-          modified: item.modified,
-          size: item.size || 0,
-          sizes: item.sizes || [],
-          preview: item.preview || "",
-        });
-      }
-
-      offset += items.length;
+    const restOffsets: number[] = [];
+    for (let offset = PAGE_SIZE; offset < total; offset += PAGE_SIZE) {
+      restOffsets.push(offset);
     }
+    if (restOffsets.length > 0) {
+      const pages = await Promise.all(
+        restOffsets.map(async (offset) => {
+          const res = await fetch(pageUrl(offset), fetchInit(opts));
+          if (!res.ok) return [];
+          const data: YandexResourceResponse = await res.json();
+          return data._embedded?.items || [];
+        }),
+      );
+      for (const items of pages) files.push(...toFiles(items));
+    }
+
+    return files;
   } catch (err) {
     console.error("[yandex-disk] listYandexImages failed:", err);
+    return [];
   }
-
-  return files;
 }
 
 /** Lists subfolders of a shared folder level. */

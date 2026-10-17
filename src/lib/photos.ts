@@ -114,12 +114,14 @@ export async function fetchPhotosWithMetadata(
       ? { provider: "yandex", value: config.yandexDiskUrl }
       : { provider: "drive", value: config.driveFolderId });
 
-  const drivePhotos =
+  // Листинг диска и метаданные Supabase независимы — гоняем параллельно:
+  // последовательно они стоили лишних ~0.5-1с холодного TTFB /api/photos.
+  const [drivePhotos, metadata] = await Promise.all([
     resolved.provider === "yandex"
-      ? await fetchPhotosFromYandexFolder(resolved.value)
-      : await fetchPhotosFromDriveFolder(resolved.value);
-
-  const metadata = await fetchSupabaseMetadata();
+      ? fetchPhotosFromYandexFolder(resolved.value)
+      : fetchPhotosFromDriveFolder(resolved.value),
+    fetchSupabaseMetadata(),
+  ]);
   if (metadata.size === 0) return drivePhotos;
 
   for (const photo of drivePhotos) {
