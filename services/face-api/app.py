@@ -8,6 +8,7 @@ Deploy on Railway / Render / Fly.io. buffalo_sc ~300MB RAM, buffalo_l ~1.5GB.
 import os
 import sys
 import base64
+import io
 import numpy as np
 import cv2  # type: ignore[import-untyped]
 
@@ -24,6 +25,33 @@ if os.path.isdir(_VENDOR_SRC) and _VENDOR_SRC not in sys.path:
 from flask import Flask, request, jsonify  # type: ignore[import-untyped]
 from flask_cors import CORS  # type: ignore[import-untyped]
 from insightface.app import FaceAnalysis  # type: ignore[import-untyped]
+
+# HEIC/HEIF (the default iPhone camera format) — OpenCV cannot decode it,
+# while most visitors upload straight-from-phone shots. pillow-heif ships
+# prebuilt libheif wheels, no compilation.
+try:
+    from PIL import Image  # type: ignore[import-untyped]
+    import pillow_heif  # type: ignore[import-untyped]
+
+    pillow_heif.register_heif_opener()
+    _HAS_HEIF = True
+except ImportError:  # pragma: no cover - depends on deployment
+    _HAS_HEIF = False
+
+
+def _decode_image(img_bytes: bytes):
+    """BGR image from raw bytes, or None. cv2 first (jpeg/png/webp), then
+    Pillow+libheif for HEIC/HEIF."""
+    img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+    if img is not None:
+        return img
+    if _HAS_HEIF:
+        try:
+            pil = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            return cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+        except Exception:
+            return None
+    return None
 
 # Model root resolution (insightface 0.7.3 has no env-var support — the
 # root is the FaceAnalysis `root` parameter): weights bundled next to the
@@ -100,8 +128,7 @@ def embed():
 
     try:
         img_bytes = base64.b64decode(image_b64)
-        nparr = np.frombuffer(img_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        img = _decode_image(img_bytes)
 
         if img is None:
             return jsonify({"error": "Invalid image"}), 400

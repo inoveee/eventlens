@@ -13,3 +13,6 @@ gunicorn==23.0.0
 # of RSS the free tier's 256MB instance cannot spare.
 requests
 tqdm
+# HEIC/HEIF (iPhone default format) decode for /embed.
+pillow
+pillow-heif
