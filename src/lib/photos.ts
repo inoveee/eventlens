@@ -12,6 +12,7 @@ import {
   listYandexImages,
   listYandexSubfolders,
   yandexFullsizeUrl,
+  yandexOriginalUrl,
   yandexThumbUrl,
 } from "./yandex-disk";
 
@@ -218,7 +219,12 @@ function yandexFilesToPhotos(
     mimeType: f.mimeType || "",
     processedAt: f.modified || "",
     thumbnailUrl: yandexThumbUrl(f),
-    downloadUrl: `/api/yandex-download?path=${encodeURIComponent(f.path)}`,
+    // Прямая ссылка на оригинал (подписана Яндексом, действует долго):
+    // скачивание не проходит через приложение и не зависит от того,
+    // проснулся ли инстанс. Прокси-маршрут — фолбэк, если sizes пуст.
+    downloadUrl:
+      yandexOriginalUrl(f) ||
+      `/api/yandex-download?path=${encodeURIComponent(f.path)}`,
     fullsizeUrl: yandexFullsizeUrl(f),
     autoTag: null,
     ownerName: "",

@@ -31,6 +31,7 @@ async function resolveProject(key: string) {
   return {
     name: published?.text.name || eventName,
     tagline: published?.text.tagline || eventTagline,
+    published,
   };
 }
 
@@ -54,7 +55,7 @@ export default async function PublicProjectPage({ params }: ProjectPageProps) {
   if (!project) notFound();
 
   return (
-    <EventSettingsProvider projectKey={key}>
+    <EventSettingsProvider projectKey={key} initialSettings={project.published}>
       <Suspense
         fallback={
           <div className="min-h-screen bg-[var(--el-bg)]">

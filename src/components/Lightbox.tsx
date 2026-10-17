@@ -18,6 +18,17 @@ function getDriveImageUrl(fileId: string) {
   return `https://lh3.googleusercontent.com/d/${fileId}=w1200`;
 }
 
+/** URL для показа в лайтбоксе: полноразмерный → запасной размер.
+ *  Путь Яндекса («disk:/…») в Google-URL не превращаем — раньше такой
+ *  фолбэк рисовал битую картинку вместо фото. */
+function resolveFullsizeUrl(p: PhotoRecord): string {
+  if (p.fullsizeUrl) return p.fullsizeUrl;
+  if (p.driveFileId && !p.driveFileId.includes("/")) {
+    return getDriveImageUrl(p.driveFileId);
+  }
+  return p.thumbnailUrl || "";
+}
+
 export default function Lightbox({
   photo,
   photos,
@@ -28,6 +39,12 @@ export default function Lightbox({
 }: LightboxProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false);
+  // Ретраи полноразмерной картинки: Yandex отдаёт однократные 500 на
+  // массовые запросы, поэтому повторяем, потом падаем на превью.
+  const [imgRetry, setImgRetry] = useState(0);
+  const [imgFallback, setImgFallback] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
+  const errorRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -81,6 +98,9 @@ export default function Lightbox({
 
     setImageLoaded(false);
     setShowSpinner(false);
+    setImgRetry(0);
+    setImgFallback(false);
+    setImgFailed(false);
 
     spinnerTimerRef.current = setTimeout(() => {
       setShowSpinner(true);
@@ -95,6 +115,10 @@ export default function Lightbox({
       if (spinnerTimerRef.current) {
         clearTimeout(spinnerTimerRef.current);
         spinnerTimerRef.current = null;
+      }
+      if (errorRetryTimerRef.current) {
+        clearTimeout(errorRetryTimerRef.current);
+        errorRetryTimerRef.current = null;
       }
     };
   }, [photo]);
@@ -147,8 +171,7 @@ export default function Lightbox({
     const nextPhoto = photos[nextIdx];
     const prevPhoto = photos[prevIdx];
 
-    const preloadUrl = (p?: PhotoRecord) =>
-      p ? p.fullsizeUrl || (p.driveFileId ? getDriveImageUrl(p.driveFileId) : "") : "";
+    const preloadUrl = (p?: PhotoRecord) => (p ? resolveFullsizeUrl(p) : "");
 
     const nextUrl = preloadUrl(nextPhoto);
     const prevUrl = preloadUrl(prevPhoto);
@@ -221,9 +244,27 @@ export default function Lightbox({
     /\.(mp4|mov|webm|avi)$/i.test(photo.filename) ||
     photo.mimeType?.startsWith("video/");
 
-  const fullImageUrl =
-    photo.fullsizeUrl ||
-    (photo.driveFileId ? getDriveImageUrl(photo.driveFileId) : "");
+  const fullImageUrl = resolveFullsizeUrl(photo);
+  // Запасной размер для ретраев — превью, обычно уже закэшированное сеткой.
+  const backupImageUrl =
+    photo.thumbnailUrl && photo.thumbnailUrl !== fullImageUrl
+      ? photo.thumbnailUrl
+      : "";
+
+  // Ошибка полноразмерной картинки: повтор исходной ссылки после паузы
+  // (мгновенный повтор упёрся бы в тот же 500), затем запасной размер,
+  // и лишь потом отказ с кнопкой «Повторить».
+  const handleImageError = () => {
+    if (errorRetryTimerRef.current) clearTimeout(errorRetryTimerRef.current);
+    errorRetryTimerRef.current = setTimeout(() => {
+      if (imgRetry < 2) setImgRetry((n) => n + 1);
+      else if (backupImageUrl && !imgFallback) setImgFallback(true);
+      else {
+        setImgFailed(true);
+        handleImageLoaded();
+      }
+    }, 900);
+  };
 
   const videoUrl = photo.fullsizeUrl
     ? photo.fullsizeUrl
@@ -333,17 +374,39 @@ export default function Lightbox({
               onError={handleImageLoaded}
             />
           ) : fullImageUrl ? (
-            <Image
-              key={photo.driveFileId}
-              src={fullImageUrl}
-              alt={photo.filename}
-              fill
-              unoptimized
-              className={`object-contain select-none lightbox-media lightbox-image ${imageLoaded ? 'loaded' : ''}`}
-              draggable={false}
-              onLoad={handleImageLoaded}
-              onError={handleImageLoaded}
-            />
+            imgFailed ? (
+              <div className="flex flex-col items-center gap-3 px-6 text-center">
+                <p className="text-sm text-white/70">Не удалось загрузить фото</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (errorRetryTimerRef.current) {
+                      clearTimeout(errorRetryTimerRef.current);
+                      errorRetryTimerRef.current = null;
+                    }
+                    setImageLoaded(false);
+                    setImgRetry(0);
+                    setImgFallback(false);
+                    setImgFailed(false);
+                  }}
+                  className="inline-flex h-9 items-center border border-white/30 px-3 text-xs font-mono uppercase tracking-wider text-white active:bg-white/10"
+                >
+                  Повторить
+                </button>
+              </div>
+            ) : (
+              <Image
+                key={`${photo.driveFileId}-${imgRetry}`}
+                src={imgFallback && backupImageUrl ? backupImageUrl : fullImageUrl}
+                alt={photo.filename}
+                fill
+                unoptimized
+                className={`object-contain select-none lightbox-media lightbox-image ${imageLoaded ? 'loaded' : ''}`}
+                draggable={false}
+                onLoad={handleImageLoaded}
+                onError={handleImageError}
+              />
+            )
           ) : null}
         </div>
       </div>
@@ -417,6 +480,9 @@ export default function Lightbox({
 
               <a
                 href={photo.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                download={photo.filename}
                 className="inline-flex h-9 items-center gap-2 border border-[var(--el-primary-99)] bg-[var(--el-primary-11)] px-3 text-xs font-mono uppercase tracking-wider text-[var(--el-t-primary-99)] active:bg-[var(--el-primary-22)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--el-primary)] transition-all"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

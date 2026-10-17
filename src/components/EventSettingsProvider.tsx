@@ -88,15 +88,19 @@ function readPreview(projectKey: string): EventSettings | null {
 
 export default function EventSettingsProvider({
   projectKey = "default",
+  initialSettings = null,
   children,
 }: {
   projectKey?: string;
+  /** Опубликованные настройки, прочитанные на сервере: страница сразу
+   *  рендерится с брендингом организатора, базовый дизайн не мелькает. */
+  initialSettings?: EventSettings | null;
   children: React.ReactNode;
 }) {
-  const [published, setPublished] = useState<EventSettings | null>(null);
+  const [published, setPublished] = useState<EventSettings | null>(initialSettings);
   const [previewSettings, setPreviewSettings] = useState<EventSettings | null>(null);
   const [preview, setPreview] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(initialSettings !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,8 +161,23 @@ export default function EventSettingsProvider({
     }
   }, [loaded, value.settings]);
 
+  // Те же переменные — в SSR-теге <style>: он попадает в HTML и действует
+  // с первого кадра, до hydration (иначе первый экран рисуется в базовых
+  // цветах проекта и через мгновение перекрашивается брендингом).
+  const tokenCss = useMemo(() => {
+    const decls = Object.entries(brandingTokens(value.settings.branding))
+      .map(([name, cssValue]) => `${name}:${cssValue}`)
+      .join(";");
+    return `:root{${decls}}`;
+  }, [value.settings]);
+
   return (
     <EventSettingsContext.Provider value={value}>
+      <style
+        href="el-branding-tokens"
+        precedence="high"
+        dangerouslySetInnerHTML={{ __html: tokenCss }}
+      />
       {children}
     </EventSettingsContext.Provider>
   );
