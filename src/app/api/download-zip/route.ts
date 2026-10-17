@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
 import { config } from "@/lib/config";
 import { fetchYandexDownloadHref } from "@/lib/yandex-disk";
+import { coerceProjectKey } from "@/lib/eventSettings";
+import { resolvePhotoSource } from "@/lib/eventSettingsStore";
 
 export const maxDuration = 60;
 
@@ -16,7 +18,7 @@ interface FileEntry {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { files } = body as { files: FileEntry[] };
+    const { files, project } = body as { files: FileEntry[]; project?: string };
 
     if (!Array.isArray(files) || files.length === 0) {
       return NextResponse.json(
@@ -32,6 +34,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Папка проекта — из его настроек (Supabase). Глобальный
+    // YANDEX_DISK_FOLDER_URL на проде не задан, поэтому раньше все
+    // href-и падали мгновенно и клиент показывал «download failed».
+    const source = await resolvePhotoSource(coerceProjectKey(project) ?? undefined);
+    const yandexFolder =
+      source.provider === "yandex" && source.value ? source.value : config.yandexDiskUrl;
+
     const VALID_FILE_ID = /^[a-zA-Z0-9_-]+$/;
     const zip = new JSZip();
     const CONCURRENCY = 10;
@@ -46,7 +55,7 @@ export async function POST(request: NextRequest) {
             let url: string;
             if (entry.yandexPath) {
               const href = await fetchYandexDownloadHref(
-                config.yandexDiskUrl,
+                yandexFolder,
                 entry.yandexPath,
               );
               if (!href) return null;

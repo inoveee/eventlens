@@ -8,6 +8,9 @@ interface ToastProps {
   action?: { label: string; onClick: () => void };
   duration?: number;
   onDismiss: () => void;
+  /** Показано ли нижнее панель действий (выбор фото): тост поднимается
+   *  над ним, иначе уезжает под неё (оба были z-40, тост был bottom-4). */
+  lifted?: boolean;
 }
 
 export default function Toast({
@@ -15,6 +18,7 @@ export default function Toast({
   action,
   duration = 10000,
   onDismiss,
+  lifted = false,
 }: ToastProps) {
   const [visible, setVisible] = useState(false);
 
@@ -29,7 +33,7 @@ export default function Toast({
 
   return (
     <div
-      className={`fixed bottom-4 left-3 right-3 z-40 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:bottom-6 mb-safe-bottom transition-all duration-300 ${
+      className={`fixed ${lifted ? "bottom-24" : "bottom-4"} left-3 right-3 z-50 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 ${lifted ? "sm:bottom-28" : "sm:bottom-6"} mb-safe-bottom transition-all duration-300 ${
         visible
           ? "translate-y-0 opacity-100"
           : "translate-y-4 opacity-0"

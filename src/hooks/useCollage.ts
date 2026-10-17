@@ -4,6 +4,7 @@
 import { useState, useCallback } from "react";
 import { PhotoRecord } from "@/lib/types";
 import type { CollageRatio } from "@/components/FloatingActionBar";
+import { useProjectKey } from "@/hooks/useProjectKey";
 
 export interface UseCollageReturn {
   collagePending: boolean;
@@ -27,6 +28,8 @@ export function useCollage(
   const [collagePreviewUrl, setCollagePreviewUrl] = useState<string | null>(null);
   const [showRatioModal, setShowRatioModal] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  // Ключ проекта — серверные роуты резолвят папку Яндекса по нему.
+  const projectKey = useProjectKey();
 
   const startCollage = useCallback(() => {
     if (selectedIds.size === 0) return;
@@ -48,7 +51,7 @@ export function useCollage(
       const res = await fetch("/api/collage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files, hero: files.length > 4, ratio }),
+        body: JSON.stringify({ files, hero: files.length > 4, ratio, project: projectKey }),
       });
 
       if (!res.ok) throw new Error("Collage generation failed");
@@ -57,11 +60,11 @@ export function useCollage(
       const url = URL.createObjectURL(blob);
       setCollagePreviewUrl(url);
     } catch {
-      setToast({ message: "COLLAGE GENERATION FAILED — RETRY", count: 0 });
+      setToast({ message: "Не удалось собрать коллаж — повторите попытку", count: 0 });
     } finally {
       setCollagePending(false);
     }
-  }, [selectedIds, filteredPhotos, setToast]);
+  }, [selectedIds, filteredPhotos, projectKey, setToast]);
 
   const handleCollageDownload = useCallback(() => {
     if (!collagePreviewUrl) return;
@@ -98,7 +101,7 @@ export function useCollage(
       const res = await fetch("/api/download-zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files }),
+        body: JSON.stringify({ files, project: projectKey }),
       });
 
       if (!res.ok) throw new Error("Download failed");
@@ -115,11 +118,11 @@ export function useCollage(
 
       clearSelection();
     } catch {
-      setToast({ message: "ZIP DOWNLOAD FAILED — RETRY", count: 0 });
+      setToast({ message: "Не удалось скачать архив — повторите попытку", count: 0 });
     } finally {
       setDownloading(false);
     }
-  }, [selectedIds, filteredPhotos, clearSelection, setToast]);
+  }, [selectedIds, filteredPhotos, projectKey, clearSelection, setToast]);
 
   return {
     collagePending,

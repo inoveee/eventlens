@@ -4,6 +4,8 @@ import sharp from "sharp";
 import { config } from "@/lib/config";
 import { pickHeroImage } from "@/lib/gemini";
 import { fetchYandexDownloadHref } from "@/lib/yandex-disk";
+import { coerceProjectKey } from "@/lib/eventSettings";
+import { resolvePhotoSource } from "@/lib/eventSettingsStore";
 
 export const maxDuration = 60;
 
@@ -154,12 +156,12 @@ function calculateGrid(
   return { cols, rows: usedRows, canvasHeight: actualHeight, positions };
 }
 
-async function fetchImage(entry: FileEntry): Promise<Buffer | null> {
+async function fetchImage(entry: FileEntry, yandexFolder: string): Promise<Buffer | null> {
   try {
     let url: string;
 
     if (entry.yandexPath) {
-      const href = await fetchYandexDownloadHref(config.yandexDiskUrl, entry.yandexPath);
+      const href = await fetchYandexDownloadHref(yandexFolder, entry.yandexPath);
       if (!href) return null;
       url = href;
     } else {
@@ -193,6 +195,7 @@ export async function POST(request: NextRequest) {
       heroIndex,
       hero = false,
       ratio = "letterbox",
+      project,
     } = body as {
       files: FileEntry[];
       width?: number;
@@ -200,11 +203,20 @@ export async function POST(request: NextRequest) {
       heroIndex?: number;
       hero?: boolean;
       ratio?: CollageRatio;
+      project?: string;
     };
 
     if (!Array.isArray(files) || files.length === 0) {
       return NextResponse.json({ error: "No files provided" }, { status: 400 });
     }
+
+    // Папка проекта — из его настроений (Supabase), а не из глобального
+    // env: YANDEX_DISK_FOLDER_URL на проде не задан, и раньше все
+    // ссылки на скачивание получались пустыми («Failed to fetch any
+    // images» мгновенно после клика).
+    const source = await resolvePhotoSource(coerceProjectKey(project) ?? undefined);
+    const yandexFolder =
+      source.provider === "yandex" && source.value ? source.value : config.yandexDiskUrl;
 
     if (files.length > 20) {
       return NextResponse.json(
@@ -222,7 +234,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < files.length; i += CONCURRENCY) {
       const batch = files.slice(i, i + CONCURRENCY);
       const results = await Promise.all(
-        batch.map((entry) => fetchImage(entry)),
+        batch.map((entry) => fetchImage(entry, yandexFolder)),
       );
       imageBuffers.push(...results);
     }

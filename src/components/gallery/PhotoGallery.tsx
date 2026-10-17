@@ -328,6 +328,7 @@ export default function PhotoGallery() {
           message={photos.toast.message}
           action={{ label: "Обновить", onClick: photos.refresh }}
           onDismiss={() => photos.setToast(null)}
+          lifted={selection.selectedIds.size > 0}
         />
       )}
 
