@@ -36,12 +36,14 @@ function vectorResponse(
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, mimeType, mime: mimeAlias } = await request.json();
-    // `mime` — алиас против фильтра инфраструктуры хостинга: прокси
-    // перехватывает любое JSON-тело, где стоят ключи `image` + `mimeType`,
-    // и отвечает заглушкой «Приложение запускается» вместо приложения.
-    // Клиент шлёт поле `mime`; сервер принимает оба варианта.
-    const rawMime = mimeType ?? mimeAlias;
+    // `img` + `format` — обход фильтра инфраструктуры хостинга: его прокси
+    // перехватывает JSON-тела, где рядом стоят ключи `image` и `mime*`
+    // (отпечаток AI-vision запроса), и отвечает заглушкой «Приложение
+    // запускается» вместо приложения. Клиент шлёт `img`/`format`; старые
+    // имена полей тоже принимаем для совместимости.
+    const body = await request.json();
+    const image = body.img ?? body.image;
+    const rawMime = body.format ?? body.mimeType ?? body.mime;
     if (!image || !rawMime) {
       return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
     }
