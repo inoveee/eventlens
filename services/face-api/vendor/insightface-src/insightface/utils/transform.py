@@ -1,7 +1,7 @@
 import cv2
 import math
 import numpy as np
-from skimage import transform as trans
+from . import similarity as trans
 
 
 def transform(data, center, output_size, scale, rotation):

@@ -7,7 +7,6 @@
 from __future__ import division
 import numpy as np
 import cv2
-import onnx
 import onnxruntime
 from ..utils import face_align
 from ..utils import transform
@@ -23,19 +22,12 @@ class Landmark:
         assert model_file is not None
         self.model_file = model_file
         self.session = session
+        # Graph scan dropped (see arcface_onnx.py): it needs the `onnx`
+        # package, which the deploy omits. These modules are imported for
+        # their class definitions only — the service loads detection and
+        # recognition models, never landmarks/attributes.
         find_sub = False
         find_mul = False
-        model = onnx.load(self.model_file)
-        graph = model.graph
-        for nid, node in enumerate(graph.node[:8]):
-            #print(nid, node.name)
-            if node.name.startswith('Sub') or node.name.startswith('_minus'):
-                find_sub = True
-            if node.name.startswith('Mul') or node.name.startswith('_mul'):
-                find_mul = True
-            if nid<3 and node.name=='bn_data':
-                find_sub = True
-                find_mul = True
         if find_sub and find_mul:
             #mxnet arcface model
             input_mean = 0.0

@@ -1,13 +1,15 @@
-# Packing rules for the standalone face-api deploy. The buffalo_l weights
-# are NOT bundled: the 176MB archive exceeds the platform's 600s upload
-# window on a slow link, and app.py downloads the trimmed models from the
-# GitHub release (face-models-v1) at cold start instead.
+# Packing rules for the standalone face-api deploy.
 .venv/
 __pycache__/
 *.pyc
 run-local.sh
 requirements-local.txt
 Dockerfile
-# Anchored to the deploy root: un-anchored `insightface/` would also match
-# vendor/insightface-src/insightface (the vendored package).
-/insightface/
+.DS_Store
+# Ship insightface/models/buffalo_sc (15MB — fits the deploy archive's
+# 600s upload window and the free tier's 256MB instance) but keep the
+# 198MB buffalo_l weights out. Excluding the dir itself (gitignore cannot
+# re-include children of an excluded dir) — do NOT exclude /insightface/
+# wholesale: vendor/insightface-src/insightface is a separate path, but the
+# bundled models live exactly here.
+/insightface/models/buffalo_l/

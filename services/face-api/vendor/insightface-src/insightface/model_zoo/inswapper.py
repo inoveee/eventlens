@@ -2,8 +2,15 @@ import time
 import numpy as np
 import onnxruntime
 import cv2
-import onnx
-from onnx import numpy_helper
+try:
+    import onnx
+    from onnx import numpy_helper
+except ImportError:
+    # The face-swap stack needs the `onnx` package, which the deploy omits
+    # (RAM). INSwapper is imported for its class definition only — the
+    # service never performs face swaps, so the missing names never run.
+    onnx = None
+    numpy_helper = None
 from ..utils import face_align
 
 

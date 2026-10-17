@@ -1,14 +1,15 @@
-# Platform (Layero python_web) dependencies — Python 3.12.
-#
-# insightface is installed from the vendored pure-python source tree: the
-# PyPI sdist compiles a Cython extension (face3d mesh — unused by
-# FaceAnalysis) and the platform's builder image has no g++. The tree is
-# the sdist with ext_modules stripped and runtime deps slimmed — the
-# runtime code is unchanged, so embeddings match insightface 0.7.3.
-flask==3.1.1
-flask-cors==5.0.1
+flask
+flask-cors
 onnxruntime==1.22.0
 opencv-python-headless==4.11.0.86
 numpy==1.26.4
 gunicorn==23.0.0
-/app/vendor/insightface-src
+# deps of the vendored pure-python insightface (vendor/insightface-src —
+# imported via sys.path in app.py, NOT installed by pip: the platform runs
+# requirements before `COPY . /app`). All wheels, no compilation.
+# NOT included, and vendored code is patched accordingly: onnx (graph scan
+# replaced with verified constants) and scikit-image (SimilarityTransform
+# replaced with a numpy implementation) — together they would cost ~140MB
+# of RSS the free tier's 256MB instance cannot spare.
+requests
+tqdm

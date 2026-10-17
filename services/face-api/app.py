@@ -6,50 +6,40 @@ Deploy on Railway / Render / Fly.io. buffalo_sc ~300MB RAM, buffalo_l ~1.5GB.
 """
 
 import os
-import tarfile
-import urllib.request
+import sys
 import base64
 import numpy as np
 import cv2  # type: ignore[import-untyped]
+
+# The platform's builder runs `pip install -r requirements.txt` BEFORE
+# `COPY . /app` (see Dockerfile.layero), so a path-requirement pointing at
+# vendored sources can never resolve at build time. Instead the vendored
+# pure-python insightface (no Cython extensions — the builder image has no
+# g++) goes onto sys.path right here, at import time, when the tree is
+# already present in /app.
+_VENDOR_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor", "insightface-src")
+if os.path.isdir(_VENDOR_SRC) and _VENDOR_SRC not in sys.path:
+    sys.path.insert(0, _VENDOR_SRC)
+
 from flask import Flask, request, jsonify  # type: ignore[import-untyped]
 from flask_cors import CORS  # type: ignore[import-untyped]
 from insightface.app import FaceAnalysis  # type: ignore[import-untyped]
 
 # Model root resolution (insightface 0.7.3 has no env-var support — the
-# root is the FaceAnalysis `root` parameter):
-#   1. weights bundled next to the app (local dev, offline);
-#   2. /tmp cache from a previous boot of this container;
-#   3. ~/.insightface (local dev fallback);
-#   4. download the trimmed buffalo_l (det_10g + w600k_r50 — the only two
-#      modules this service loads) from the GitHub release at cold start.
-#      Platform filesystems are ephemeral, and the 176MB deploy archive is
-#      both too big to upload from a slow link and gone after redeploy, so
-#      fetching at boot is the reliable path.
+# root is the FaceAnalysis `root` parameter): weights bundled next to the
+# app (the deploy ships buffalo_sc — det_500m + w600k_mbf, 15MB total, it
+# fits both the deploy archive and the free tier's 256MB instance), then
+# the /tmp cache, then ~/.insightface for local runs without the bundle.
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _BUNDLED_HOME = os.path.join(_BASE_DIR, "insightface")
 _TMP_HOME = "/tmp/insightface"
-MODEL_URL = os.environ.get(
-    "INSIGHTFACE_MODEL_URL",
-    "https://github.com/inoveee/eventlens/releases/download/face-models-v1/buffalo_l_trimmed.tgz",
-)
 
 
 def _resolve_model_root() -> str:
     for home in (_BUNDLED_HOME, _TMP_HOME, os.path.expanduser("~/.insightface")):
-        if os.path.isdir(os.path.join(home, "models", "buffalo_l")):
+        if os.path.isdir(os.path.join(home, "models", os.environ.get("INSIGHTFACE_MODEL", "buffalo_sc"))):
             return home
-    os.makedirs(_TMP_HOME, exist_ok=True)
-    tgz_path = "/tmp/buffalo_l.tgz"
-    print(f"[face-api] model weights missing — downloading from {MODEL_URL}", flush=True)
-    urllib.request.urlretrieve(MODEL_URL, tgz_path)
-    with tarfile.open(tgz_path) as tar:
-        try:
-            tar.extractall(_TMP_HOME, filter="data")
-        except TypeError:  # Python < 3.11.4 has no filter kwarg
-            tar.extractall(_TMP_HOME)
-    os.remove(tgz_path)
-    print("[face-api] models ready", flush=True)
-    return _TMP_HOME
+    return _BUNDLED_HOME
 
 
 MODEL_ROOT = _resolve_model_root()
@@ -59,10 +49,13 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
 ALLOWED_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
 CORS(app, origins=ALLOWED_ORIGINS)
 
-# Initialize InsightFace (same model as Colab notebook).
-# Only detection + recognition are used — skip gender/age/landmark modules
-# to cut cold start and RAM roughly in half.
-MODEL_NAME = os.environ.get("INSIGHTFACE_MODEL", "buffalo_l")
+# Initialize InsightFace (same pipeline as the Colab notebook, compact
+# bundle). Only detection + recognition are used — skip gender/age/
+# landmark modules to cut cold start and RAM.
+# NOTE: buffalo_sc embeddings (w600k_mbf, 512-dim) are a different space
+# from buffalo_l (w600k_r50) — the DB embeddings must come from the same
+# model this service runs.
+MODEL_NAME = os.environ.get("INSIGHTFACE_MODEL", "buffalo_sc")
 face_app = FaceAnalysis(
     name=MODEL_NAME,
     root=MODEL_ROOT,

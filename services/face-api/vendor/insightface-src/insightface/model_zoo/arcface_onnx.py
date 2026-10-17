@@ -7,7 +7,6 @@
 from __future__ import division
 import numpy as np
 import cv2
-import onnx
 import onnxruntime
 from ..utils import face_align
 
@@ -22,16 +21,13 @@ class ArcFaceONNX:
         self.model_file = model_file
         self.session = session
         self.taskname = 'recognition'
+        # Graph scan for input normalization dropped: it needs the `onnx`
+        # package, which the deploy omits to save RAM on the 256MB instance.
+        # For the shipped w600k_mbf (buffalo_sc) the scan finds no Sub/Mul
+        # among the first 8 graph nodes (verified locally: Conv/PRelu chain),
+        # so the else-branch below (127.5/127.5) is the one that applies.
         find_sub = False
         find_mul = False
-        model = onnx.load(self.model_file)
-        graph = model.graph
-        for nid, node in enumerate(graph.node[:8]):
-            #print(nid, node.name)
-            if node.name.startswith('Sub') or node.name.startswith('_minus'):
-                find_sub = True
-            if node.name.startswith('Mul') or node.name.startswith('_mul'):
-                find_mul = True
         if find_sub and find_mul:
             #mxnet arcface model
             input_mean = 0.0
