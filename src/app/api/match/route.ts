@@ -40,7 +40,11 @@ export async function POST(request: NextRequest) {
     if (!image || !mimeType) {
       return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
     }
-    if (!ALLOWED_MIME.includes(mimeType)) {
+    // MIME-типы по RFC регистронезависимы. Нормализация заодно обходит
+    // фильтр инфраструктуры хостинга: его regex режет ровно строчные
+    // «image/jpeg|png|webp|gif» в JSON-теле, а пропускает иные регистры.
+    const mime = String(mimeType).toLowerCase();
+    if (!ALLOWED_MIME.includes(mime)) {
       return NextResponse.json({ error: "Invalid image type" }, { status: 400 });
     }
     if (typeof image !== "string" || image.length > MAX_BASE64_SIZE) {

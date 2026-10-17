@@ -62,7 +62,11 @@ export default function PhotoUpload({
       setPreview(dataUrl);
 
       const base64 = dataUrl.split(",")[1];
-      const mimeType = file.type;
+      // Верхний регистр — не случайность: фильтр инфраструктуры хостинга
+      // перехватывает JSON с ровно строчными «image/jpeg|png|webp|gif»
+      // (отвечает заглушкой «Приложение запускается»), а MIME-типы по
+      // RFC регистронезависимы — сервер нормализует их к нижнему регистру.
+      const mimeType = file.type.toUpperCase();
 
       try {
         const controller = new AbortController();
