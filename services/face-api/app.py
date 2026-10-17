@@ -11,16 +11,17 @@ import numpy as np
 import cv2  # type: ignore[import-untyped]
 from flask import Flask, request, jsonify  # type: ignore[import-untyped]
 from flask_cors import CORS  # type: ignore[import-untyped]
+from insightface.app import FaceAnalysis  # type: ignore[import-untyped]
 
-# Weights may be bundled next to the app (platform deploy archives are
-# ephemeral, so buffalo_l ships inside the folder). Set INSIGHTFACE_HOME
-# before importing insightface — it reads the env at import time.
+# Platform deploy archives are ephemeral, so buffalo_l may ship inside the
+# folder (insightface/models/buffalo_l). insightface 0.7.3 has no env-var
+# support for the model root — it is the FaceAnalysis `root` parameter.
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _BUNDLED_HOME = os.path.join(_BASE_DIR, "insightface")
 if os.path.isdir(os.path.join(_BUNDLED_HOME, "models", "buffalo_l")):
-    os.environ.setdefault("INSIGHTFACE_HOME", _BUNDLED_HOME)
-
-from insightface.app import FaceAnalysis  # type: ignore[import-untyped]
+    MODEL_ROOT = _BUNDLED_HOME
+else:
+    MODEL_ROOT = os.path.expanduser("~/.insightface")
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
@@ -33,6 +34,7 @@ CORS(app, origins=ALLOWED_ORIGINS)
 MODEL_NAME = os.environ.get("INSIGHTFACE_MODEL", "buffalo_l")
 face_app = FaceAnalysis(
     name=MODEL_NAME,
+    root=MODEL_ROOT,
     providers=["CPUExecutionProvider"],
     allowed_modules=["detection", "recognition"],
 )
