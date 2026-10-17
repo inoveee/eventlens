@@ -14,6 +14,15 @@ import tarfile
 import threading
 import time
 import urllib.request
+
+# Квота контейнера — 1 core. Без этих лимитов OpenMP/BLAS/ORT берут
+# потоки по числу ядер ХОСТА (8-12) и один инференс растягивается на
+# десятки секунд из-за оверсабскрипшна на чужих ядрах. Ставим ДО
+# импорта numpy/cv2/onnxruntime.
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
+os.environ.setdefault("MKL_NUM_THREADS", "2")
+
 import numpy as np
 import cv2  # type: ignore[import-untyped]
 
@@ -243,12 +252,30 @@ def embed():
 
     try:
         img_bytes = base64.b64decode(image_b64)
+        t_dec0 = time.time()
         img = _decode_image(img_bytes)
 
         if img is None:
             return jsonify({"error": "Invalid image"}), 400
 
+        # Детекция ужимается до 640 внутри insightface — гигантские
+        # входы (12MP HEIC с айфона) не дают качества, но стоят памяти
+        # и времени препроцессинга. Ограничиваем длинную сторону.
+        h, w = img.shape[:2]
+        if max(h, w) > 1600:
+            scale = 1600 / max(h, w)
+            img = cv2.resize(
+                img, (max(1, int(w * scale)), max(1, int(h * scale))),
+                interpolation=cv2.INTER_AREA,
+            )
+        t_dec1 = time.time()
         faces = face_app.get(img)
+        t_get1 = time.time()
+        print(
+            f"[embed] decode+prep={t_dec1 - t_dec0:.2f}s get={t_get1 - t_dec1:.2f}s "
+            f"size={w}x{h}-> {img.shape[1]}x{img.shape[0]} faces={len(faces)}",
+            flush=True,
+        )
 
         if not faces:
             return jsonify({"faces": [], "count": 0})

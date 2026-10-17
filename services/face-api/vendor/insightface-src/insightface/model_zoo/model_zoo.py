@@ -22,6 +22,18 @@ __all__ = ['get_model']
 class PickableInferenceSession(onnxruntime.InferenceSession): 
     # This is a wrapper to make the current InferenceSession class pickable.
     def __init__(self, model_path, **kwargs):
+        # Квота контейнера — 1 core; без ограничений ORT/OMP берут
+        # intra-op по числу ядер ХОСТА (8-12) и инференс разбирается по
+        # десяткам секунд на проход из-за оверсабскрипшна. Арену CPU
+        # выключаем — в 1GB RAM она стоит дорого, а latency почти не
+        # меняется на наших размерах входа.
+        if "sess_options" not in kwargs:
+            so = onnxruntime.SessionOptions()
+            so.intra_op_num_threads = int(os.environ.get("ORT_INTRA_OP_THREADS", "2"))
+            so.inter_op_num_threads = 1
+            so.enable_cpu_mem_arena = False
+            so.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+            kwargs["sess_options"] = so
         super().__init__(model_path, **kwargs)
         self.model_path = model_path
 

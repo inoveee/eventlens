@@ -1,5 +1,6 @@
 {
   "$schema": "https://layero.ru/schema/layero-v2.json",
   "runtime": "python_web",
+  "idle_timeout_s": 0,
   "start": "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 180"
 }
