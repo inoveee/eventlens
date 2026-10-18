@@ -1,11 +1,16 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+
+// layout-эффект только в браузере: на сервере он бы вывел warning.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /**
  * Макеты реальных экранов панели организатора (по скриншотам продукта):
  *  - OverviewScreen   — экран «Обзор» проекта;
  *  - AppearanceScreen — экран «Оформление» с редактором акцента и предпросмотром.
- * Демонстрационный проект: DevFest 2026. Это визуальные макеты для прототипа
- * маркетинговой страницы, а не скриншоты работающего приложения.
+ * Пример проекта: реальный «Фотки с ДР» (999 фото, опубликован).
+ * Это визуальные макеты для прототипа маркетинговой страницы,
+ * а не скриншоты работающего приложения.
  */
 
 const C = {
@@ -81,7 +86,7 @@ function Sidebar({ active }: { active: "overview" | "appearance" }) {
         <img src="/noveee-icon.png" alt="" className="h-6 w-6 rounded-[7px]" />
         <span className="text-[12.5px] font-semibold tracking-[-0.01em]" style={{ color: C.text }}>noveee.me</span>
       </div>
-      <div className="mt-1 px-1 text-[10.5px]" style={{ color: C.dim }}>DevFest 2026</div>
+      <div className="mt-1 px-1 text-[10.5px]" style={{ color: C.dim }}>Фотки с ДР</div>
       <nav className="mt-4 space-y-0.5">
         {items.map((it) => (
           <div
@@ -112,7 +117,7 @@ function Sidebar({ active }: { active: "overview" | "appearance" }) {
 function TopBar() {
   return (
     <div className="flex items-center gap-2.5 border-b px-5 py-3" style={{ borderColor: C.border }}>
-      <span className="text-[14px] font-semibold tracking-[-0.01em]" style={{ color: C.text }}>DevFest 2026</span>
+      <span className="text-[14px] font-semibold tracking-[-0.01em]" style={{ color: C.text }}>Фотки с ДР</span>
       <span className="flex items-center gap-1.5 rounded-full px-2 py-[3px] text-[10.5px] font-medium" style={{ background: C.okBg, color: C.ok }}>
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: C.ok }} />
         Опубликовано
@@ -129,11 +134,43 @@ function TopBar() {
   );
 }
 
-/** Обёртка «скриншота»: горизонтальный скролл на узких экранах. */
-export function PanelFrame({ children }: { children: ReactNode }) {
+/**
+ * Обёртка «скриншота» панели: десктопный макет шириной 1000px
+ * масштабируется трансформом под ширину контейнера — на мобильных
+ * экран целиком влезает без горизонтального скролла.
+ */
+export function PanelFrame({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState<number | undefined>();
+
+  useIsomorphicLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const inner = innerRef.current;
+    if (!wrap || !inner) return;
+    const update = () => {
+      const s = Math.min(1, wrap.clientWidth / 1000);
+      setScale(s);
+      setHeight(inner.offsetHeight * s); // transform не влияет на layout-высоту
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div className="overflow-x-auto rounded-[20px] border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
-      <div className="min-w-[1000px]" style={{ background: C.bg, color: C.text }}>
+    <div
+      ref={wrapRef}
+      className={`overflow-hidden rounded-[20px] border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.5)] ${className}`}
+      style={{ height }}
+    >
+      <div
+        ref={innerRef}
+        className="w-[1000px] origin-top-left"
+        style={{ transform: `scale(${scale})`, background: C.bg, color: C.text }}
+      >
         {children}
       </div>
     </div>
@@ -146,7 +183,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
 
 export function OverviewScreen() {
   const checklist = [
-    { done: true, n: null as string | null, title: "Подключить фотографии", pill: "387 фото", sub: "Ссылка на папку с фотографиями на облачном диске.", link: "Перейти" },
+    { done: true, n: null as string | null, title: "Подключить фотографии", pill: "999 фото", sub: "Ссылка на папку с фотографиями на облачном диске.", link: "Перейти" },
     { done: false, n: "2", title: "Настроить оформление", pill: null as string | null, sub: "Фон верхней части, акцентный цвет и логотип.", link: "Перейти" },
     { done: false, n: "3", title: "Проверить результат", pill: null as string | null, sub: "Посмотрите, как страница выглядит на телефоне и на компьютере.", link: "Открыть" },
     { done: true, n: null as string | null, title: "Опубликовать", pill: "Опубликовано", sub: "Применить сохранённые изменения к публичной странице.", link: "" },
@@ -180,7 +217,7 @@ export function OverviewScreen() {
               <div className="mt-3.5 grid grid-cols-3 gap-3 border-t pt-3.5" style={{ borderColor: C.border }}>
                 <div>
                   <div className="text-[9.5px] font-medium uppercase tracking-[0.12em]" style={{ color: C.faint }}>Фотографии</div>
-                  <div className="mt-1 text-[17px] font-semibold">387</div>
+                  <div className="mt-1 text-[17px] font-semibold">999</div>
                   <div className="text-[10px]" style={{ color: C.dim }}>Папок: 0</div>
                 </div>
                 <div>
@@ -353,9 +390,9 @@ export function AppearanceScreen() {
                 <div className="p-4" style={{ background: "radial-gradient(120% 140% at 85% 0%, rgba(253,141,44,0.16), transparent 55%), radial-gradient(100% 130% at 10% 10%, rgba(255,0,255,0.08), transparent 50%), #0d0d11" }}>
                   <div className="flex items-center">
                     <img src="/noveee-icon.png" alt="" className="h-7 w-7 rounded-[8px]" />
-                    <span className="ml-auto rounded-full px-2.5 py-1 text-[10px] text-white/70" style={{ background: "rgba(255,255,255,0.08)" }}>8 фото</span>
+                    <span className="ml-auto rounded-full px-2.5 py-1 text-[10px] text-white/70" style={{ background: "rgba(255,255,255,0.08)" }}>999 фото</span>
                   </div>
-                  <div className="mt-4 text-[30px] font-bold leading-none tracking-[-0.03em] text-white">DEVFEST 2026</div>
+                  <div className="mt-4 text-[30px] font-bold leading-none tracking-[-0.03em] text-white">ФОТКИ С ДР</div>
                   <div className="mt-2 text-[13px] font-semibold" style={{ color: C.accent }}>
                     Вся съёмка с мероприятия. И ваши кадры в ней
                   </div>

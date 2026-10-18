@@ -11,6 +11,21 @@ import { AppearanceScreen, OverviewScreen, PanelFrame } from "./PanelScreens";
 const CONF = "/intro-demo/conf-";
 const TEAM = "/intro-demo/team-";
 
+/**
+ * Реальный проект с платформы — «Фотки с ДР» (999 фотографий,
+ * страница noveee.me/p/test-noveee). Снимки и селфи ниже — из него.
+ */
+const DR = "/intro-demo/dr-";
+const DR_SELFIE = `${DR}selfie.webp`;
+const drGallery = [
+  { src: `${DR}1.webp`, match: true },
+  { src: `${DR}2.webp`, match: false },
+  { src: `${DR}3.webp`, match: true },
+  { src: `${DR}4.webp`, match: false },
+  { src: `${DR}5.webp`, match: true },
+  { src: `${DR}6.webp`, match: false },
+];
+
 const confGallery = [
   { src: `${CONF}meetup.webp`, match: true },
   { src: `${CONF}panel1.webp`, match: false },
@@ -386,8 +401,8 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
               От архива мероприятия до ваших фотографий — четыре шага
             </h2>
             <p className="mt-5 text-[15.5px] leading-relaxed text-white/55">
-              Так выглядит задуманный сценарий noveee.me. Интерфейсы ниже —
-              концептуальные макеты: точные возможности сервиса покажем на демо.
+              Показываем на реальном проекте с платформы — «Фотки с ДР»:
+              999 фотографий на странице noveee.me/p/test-noveee.
             </p>
           </div>
 
@@ -400,15 +415,15 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
               </div>
               <div className="mt-5 rounded-[14px] bg-[#f6f6f7] p-4 text-[#17171a] shadow-lg">
                 <div className="flex items-center gap-3">
-                  <img src={`${CONF}cover.webp`} alt="" className="h-11 w-11 rounded-lg object-cover" />
+                  <img src={`${DR}1.webp`} alt="" className="h-11 w-11 rounded-lg object-cover" />
                   <div className="min-w-0">
-                    <div className="truncate text-[12.5px] font-semibold">NOVE TECH CONFERENCE</div>
-                    <div className="text-[10.5px] text-[#63636d]">1 248 фото · загружено</div>
+                    <div className="truncate text-[12.5px] font-semibold">Фотки с ДР</div>
+                    <div className="text-[10.5px] text-[#63636d]">999 фото · загружено</div>
                   </div>
                   <span className="ml-auto rounded-full bg-[#e8f6ec] px-2 py-0.5 text-[9.5px] font-medium text-[#15803d]">Готово</span>
                 </div>
                 <div className="mt-3 flex items-center gap-2 rounded-lg bg-[#f1f1f4] px-2.5 py-1.5">
-                  <span className="truncate font-mono text-[9.5px] text-[#63636d]">noveee.me/p/nove-tech</span>
+                  <span className="truncate font-mono text-[9.5px] text-[#63636d]">noveee.me/p/test-noveee</span>
                   <span className="ml-auto shrink-0 text-[9.5px] font-medium text-[#17171a]">Копировать</span>
                 </div>
               </div>
@@ -426,7 +441,7 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
               <div className="mt-5 flex justify-center">
                 <PhoneFrame>
                   <div className="relative aspect-[9/13]">
-                    <img src={SELFIE} alt="" className="h-full w-full object-cover" />
+                    <img src={DR_SELFIE} alt="" className="h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
                     <div className="absolute inset-x-0 bottom-0 p-3 text-center">
                       <div className="mx-auto mb-2 h-px w-10 bg-white/40" />
@@ -449,11 +464,11 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
               </div>
               <div className="mt-5 rounded-[14px] border border-white/[0.07] bg-[#101014] p-3">
                 <div className="flex items-center gap-2 pb-2.5 text-[11px] text-white/55">
-                  <img src={SELFIE} alt="" className="h-6 w-6 rounded-full object-cover" />
+                  <img src={DR_SELFIE} alt="" className="h-6 w-6 rounded-full object-cover" />
                   Найдено 12 снимков с вами
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {confGallery.slice(0, 6).map((p, i) => (
+                  {drGallery.map((p, i) => (
                     <div key={i} className={`relative aspect-square overflow-hidden rounded-md ${p.match ? "ring-2 ring-[var(--el-primary)]" : "opacity-45"}`}>
                       <img src={p.src} alt="" className="h-full w-full object-cover" loading="lazy" />
                     </div>
@@ -473,7 +488,7 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
               </div>
               <div className="mt-5 rounded-[14px] border border-white/[0.07] bg-[#101014] p-3">
                 <div className="grid grid-cols-3 gap-1.5">
-                  {[confGallery[0], confGallery[2], confGallery[8]].map((p, i) => (
+                  {[drGallery[0], drGallery[2], drGallery[4]].map((p, i) => (
                     <div key={i} className="relative aspect-square overflow-hidden rounded-md ring-2 ring-[var(--el-primary)]">
                       <img src={p.src} alt="" className="h-full w-full object-cover" loading="lazy" />
                       <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--el-primary)] text-[9px] font-bold text-black">✓</span>
@@ -491,14 +506,14 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
           </div>
 
           <p className="rv mt-8 text-[12.5px] text-white/30">
-            * Концептуальный сценарий: макеты интерфейсов показывают задуманную
-            последовательность и не гарантируют текущий набор функций продукта.
+            * Снимки и цифры — из реального проекта «Фотки с ДР» на noveee.me:
+            999 фотографий подключено к странице мероприятия.
           </p>
         </div>
       </section>
 
       {/* ============================ ОРГАНИЗАТОРАМ ============================ */}
-      <section id="organizers" className="relative border-t border-white/[0.05] py-24 lg:py-32">
+      <section id="organizers" className="relative border-t border-white/[0.05] py-24 lg:py-28">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -509,63 +524,53 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
         <div className="relative mx-auto max-w-[1160px] px-5">
           <div className="rv max-w-[760px]">
             <SectionEyebrow>Организаторам</SectionEyebrow>
-            <h2 className="max-w-[20ch] text-[clamp(1.9rem,4vw,2.9rem)] font-semibold leading-[1.1] tracking-[-0.03em]">
-              Вы организуете мероприятие. Мы помогаем участникам найти свои
+            <h2 className="max-w-[22ch] text-[clamp(1.8rem,3.6vw,2.6rem)] font-semibold leading-[1.1] tracking-[-0.03em]">
+              Вы организуете мероприятие — мы помогаем участникам найти свои
               фотографии
             </h2>
-            <ul className="mt-8 space-y-4">
-              {[
-                "Участникам не нужно вручную просматривать весь архив в общей папке",
-                "Фотографии удобнее находить и скачивать — через селфи и подсветку совпадений",
-                "Организатору проще предоставлять участникам доступ к снимкам",
-                "Фотоархив превращается в аккуратный цифровой сервис с одной страницей мероприятия",
-                "Страница мероприятия брендируется под ваш ивент: название, обложка и фирменные цвета",
-              ].map((text, i) => (
-                <li key={i} className="flex items-start gap-3 text-[15px] leading-relaxed text-white/70">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--el-primary)]/15 text-[11px] text-[var(--el-primary)]">✓</span>
-                  {text}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 text-[12.5px] text-white/30">
-              Мы не обещаем конкретные цифры вовлечённости или экономии времени —
-              покажем сервис на демо, а вы решите, подходит ли он вашему мероприятию.
+            <p className="mt-4 max-w-[58ch] text-[15px] leading-relaxed text-white/55">
+              Одна страница мероприятия вместо общих папок и пересылок: подключаете
+              архив, участники ищут себя по селфи, страницу оформляете под свой бренд.
             </p>
           </div>
 
-          {/* Экран «Обзор» панели организатора */}
-          <div className="rv rv-d2 mt-12">
-            <PanelFrame>
-              <OverviewScreen />
-            </PanelFrame>
-            <p className="mt-4 text-center text-[12.5px] text-white/30">
-              Экран «Обзор» панели организатора — демонстрационный проект DevFest 2026
-            </p>
-          </div>
-        </div>
+          <ul className="rv rv-d1 mt-7 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+            {[
+              "Участникам не нужно вручную просматривать весь архив",
+              "Поиск по селфи и подсветка совпадений вместо сотен пролистанных снимков",
+              "Одна ссылка на страницу мероприятия — без пересылок файлов",
+              "Название, обложка и фирменный цвет — страница как часть вашего бренда",
+            ].map((text, i) => (
+              <li key={i} className="flex items-start gap-3 text-[14.5px] leading-relaxed text-white/70">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--el-primary)]/15 text-[11px] text-[var(--el-primary)]">✓</span>
+                {text}
+              </li>
+            ))}
+          </ul>
 
-        {/* Брендирование под мероприятие */}
-        <div className="rv relative mx-auto mt-20 max-w-[1160px] px-5">
-          <div className="text-center">
-            <h3 className="text-[clamp(1.5rem,3vw,2.1rem)] font-semibold tracking-[-0.03em]">
-              Одна платформа — оформление под ваш ивент
-            </h3>
-            <p className="mx-auto mt-4 max-w-[54ch] text-[15px] leading-relaxed text-white/55">
-              Название, обложка и фирменные цвета настраиваются под мероприятие:
-              страница выглядит частью бренда ивента, а не шаблоном сервиса.
-            </p>
+          {/* Оба экрана панели — компактно, в две колонки */}
+          <div className="rv rv-d2 mt-10 grid gap-5 lg:grid-cols-2">
+            <div>
+              <PanelFrame>
+                <OverviewScreen />
+              </PanelFrame>
+              <p className="mt-3 text-center text-[12.5px] text-white/30">
+                «Обзор»: подключение фото, оформление и публикация страницы
+              </p>
+            </div>
+            <div>
+              <PanelFrame>
+                <AppearanceScreen />
+              </PanelFrame>
+              <p className="mt-3 text-center text-[12.5px] text-white/30">
+                «Оформление»: фирменный цвет, логотип и предпросмотр страницы
+              </p>
+            </div>
           </div>
 
-          <div className="mt-10">
-            <PanelFrame>
-              <AppearanceScreen />
-            </PanelFrame>
-          </div>
-
-          <p className="mt-5 text-center text-[12.5px] text-white/30">
-            Макет экрана «Оформление»: акцентный цвет, логотип и режим верхней
-            части страницы меняются под мероприятие — результат сразу виден в
-            предпросмотре.
+          <p className="rv mt-8 text-[12.5px] text-white/30">
+            Мы не обещаем конкретные цифры вовлечённости или экономии времени —
+            покажем сервис на демо, а вы решите, подходит ли он вашему мероприятию.
           </p>
         </div>
       </section>
