@@ -561,7 +561,7 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
               </p>
             </div>
             <div className="min-w-0">
-              <PanelFrame frameHeight={620}>
+              <PanelFrame frameHeight={700}>
                 <AppearanceScreen />
               </PanelFrame>
               <p className="mt-3 text-center text-[12.5px] text-white/30">
