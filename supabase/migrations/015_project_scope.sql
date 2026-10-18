@@ -24,9 +24,12 @@ ALTER TABLE face_embeddings DROP CONSTRAINT IF EXISTS face_embeddings_drive_file
 ALTER TABLE face_embeddings DROP CONSTRAINT IF EXISTS face_embeddings_drive_file_id_face_index_key;
 ALTER TABLE photos DROP CONSTRAINT IF EXISTS photos_drive_file_id_unique;
 
--- Шаг 4: новые составные ограничения. DROP IF EXISTS перед ADD — миграция
--- повторнобезопасна: прогон 11:48 уже создал ограничения, но не записал
--- версию (сломанный jq в CI), и повторный запуск падал на 42P07.
+-- Шаг 4: новые составные ограничения. Порядок критичен: составной FK
+-- face_embeddings опирается на unique-индекс photos, поэтому перед
+-- повторным ADD сначала снимается FK (DROP IF EXISTS — миграция
+-- идемпотентна: прогон 11:48 уже создал ограничения, но не записал
+-- версию — сломанный jq в CI — и повторный запуск падал на 42P07).
+ALTER TABLE face_embeddings DROP CONSTRAINT IF EXISTS face_embeddings_project_file_fkey;
 ALTER TABLE photos DROP CONSTRAINT IF EXISTS photos_project_file_unique;
 ALTER TABLE photos
   ADD CONSTRAINT photos_project_file_unique UNIQUE (project_key, drive_file_id);
@@ -39,7 +42,6 @@ ALTER TABLE face_embeddings
 -- Шаг 5: составной FK — каскадное удаление векторов при удалении фото
 -- сохраняется, но только внутри того же проекта. ON UPDATE CASCADE —
 -- при смене алиаса проекта (rekeyProject) векторы следуют за фото.
-ALTER TABLE face_embeddings DROP CONSTRAINT IF EXISTS face_embeddings_project_file_fkey;
 ALTER TABLE face_embeddings
   ADD CONSTRAINT face_embeddings_project_file_fkey
     FOREIGN KEY (project_key, drive_file_id)
