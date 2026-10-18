@@ -20,8 +20,11 @@ function buildEmbeddingText(photo: PipelinePhoto): string {
     .trim();
 }
 
-export async function phaseEmbed(geminiApiKey: string): Promise<PhaseResult> {
-  const store = new SupabaseStore();
+export async function phaseEmbed(
+  geminiApiKey: string,
+  projectKey = "default",
+): Promise<PhaseResult> {
+  const store = new SupabaseStore(projectKey);
   const gemini = new GeminiClient(geminiApiKey, 30);
   const errors: string[] = [];
   const startTime = Date.now();

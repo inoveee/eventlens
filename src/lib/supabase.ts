@@ -40,15 +40,19 @@ export async function matchFacesByEmbedding(
   queryEmbedding: number[],
   threshold = 0.6,
   limit = 20,
+  projectKey?: string | null,
 ): Promise<FaceMatch[]> {
   // Без Supabase (локальная file-storage конфигурация) просто возвращаем
   // пусто — векторный поиск деградирует, а не падает 500-кой.
+  // projectKey ограничивает поиск одним проектом: чужие события не съедают
+  // лимит top-N и не попадают в выдачу.
   try {
     const supabase = createServerClient();
     const { data, error } = await supabase.rpc("match_faces", {
       query_embedding: queryEmbedding,
       match_threshold: threshold,
       match_count: limit,
+      p_project_key: projectKey || null,
     });
     if (error) return [];
     return (data as FaceMatch[]) || [];
@@ -102,12 +106,14 @@ export interface SemanticMatch {
   scene_description: string;
   face_count: number;
   similarity: number;
+  project_key?: string;
 }
 
 export async function searchPhotosSemantic(
   queryEmbedding: number[],
   threshold = 0.35,
   limit = 30,
+  projectKey?: string | null,
 ): Promise<SemanticMatch[]> {
   // См. matchFacesByEmbedding: без Supabase возвращаем пусто, не падаем.
   try {
@@ -116,6 +122,7 @@ export async function searchPhotosSemantic(
       query_embedding: queryEmbedding,
       match_threshold: threshold,
       match_count: limit,
+      p_project_key: projectKey || null,
     });
     if (error) return [];
     return (data as SemanticMatch[]) || [];
@@ -130,6 +137,7 @@ export async function saveMatchSession(params: {
   topConfidence: number | null;
   queryEmbedding: number[] | null;
   matchedPhotoIds: string[];
+  projectKey?: string | null;
 }): Promise<void> {
   try {
     const supabase = createServerClient();
@@ -139,26 +147,57 @@ export async function saveMatchSession(params: {
       top_confidence: params.topConfidence,
       query_embedding: params.queryEmbedding,
       matched_photo_ids: params.matchedPhotoIds,
+      // Сессии привязаны к проекту: при архивации/удалении проекта
+      // вектора лиц из сессий уходят вместе с ним.
+      project_key: params.projectKey || "default",
     });
   } catch {}
 }
 
 export async function getPhotosByDriveFileIds(
   driveFileIds: string[],
+  projectKey?: string | null,
 ): Promise<PhotoRow[]> {
   if (driveFileIds.length === 0) return [];
   try {
     const supabase = createServerClient();
-    const { data, error } = await supabase
+    const query = supabase
       .from("photos")
       .select("*")
       .in("drive_file_id", driveFileIds)
       .eq("status", "completed")
       .neq("hidden", true);
+    const { data, error } = projectKey
+      ? await query.eq("project_key", projectKey)
+      : await query;
     if (error) return [];
     return (data as PhotoRow[]) || [];
   } catch {
     return [];
+  }
+}
+
+/**
+ * Полная чистка данных проекта: фото, вектора лиц (каскадом) и сессии
+ * поиска с их векторами. Вызывается при архивации и удалении проекта —
+ * на диске и в БД остаётся только визуал страницы (обложка, названия,
+ * описания). Возвращает количество удалённых фото (0 — чистить нечего
+ * или Supabase не подключён).
+ */
+export async function purgeProjectData(projectKey: string): Promise<number> {
+  if (!projectKey) return 0;
+  try {
+    const supabase = createServerClient();
+    const { count: photoCount } = await supabase
+      .from("photos")
+      .delete({ count: "exact" })
+      .eq("project_key", projectKey);
+    // match_sessions не зависит от photos — удаляем отдельно.
+    await supabase.from("match_sessions").delete().eq("project_key", projectKey);
+    return photoCount ?? 0;
+  } catch (err) {
+    console.error("[supabase] purgeProjectData failed:", err);
+    return 0;
   }
 }
 

@@ -1,9 +1,9 @@
 // @TheTechMargin 2026
 // Phase: FACE-EMBED — Generate InsightFace embeddings for photos.
 
-import { downloadAsBase64 } from "../drive-client";
 import { FaceApiClient } from "../face-api-client";
 import { SupabaseStore } from "../supabase-store";
+import type { PipelineSource } from "../source";
 import type { FaceEmbeddingRow, PhaseResult } from "../types";
 
 const MAX_DURATION_MS = 250_000;
@@ -26,12 +26,26 @@ function faceSentinel(photo: {
   };
 }
 
+/** pending → completed: вектора записаны, фото обработано. */
+async function markCompleted(
+  store: SupabaseStore,
+  photo: { drive_file_id: string; status: string },
+): Promise<void> {
+  if (photo.status === "completed") return;
+  await store.updatePhotoMetadata(photo.drive_file_id, {
+    status: "completed",
+    error_message: null,
+    processed_at: new Date().toISOString(),
+  });
+}
+
 export async function phaseFaceEmbed(
-  apiKey: string,
+  source: PipelineSource,
   faceApiUrl: string,
   faceApiSecret: string,
+  projectKey = "default",
 ): Promise<PhaseResult> {
-  const store = new SupabaseStore();
+  const store = new SupabaseStore(projectKey);
   const faceApi = new FaceApiClient(faceApiUrl, faceApiSecret);
   const errors: string[] = [];
   const startTime = Date.now();
@@ -65,7 +79,8 @@ export async function phaseFaceEmbed(
 
     const fid = photo.drive_file_id;
     try {
-      const img = await downloadAsBase64(fid, apiKey);
+      // 1200px — XL/достаточно для buffalo_l, оригиналы по 5-6 МБ не качаем.
+      const img = await source.download(fid, 1200);
       if (!img) {
         errors.push(photo.filename);
         continue;
@@ -73,6 +88,7 @@ export async function phaseFaceEmbed(
 
       if (img.mimeType.startsWith("video/")) {
         await store.upsertFaceEmbedding(faceSentinel(photo));
+        await markCompleted(store, photo);
         continue;
       }
 
@@ -98,6 +114,11 @@ export async function phaseFaceEmbed(
           bbox_y2: bb[3],
         });
       }
+
+      // Вectors готовы — помечаем фото обработанным. В Drive-потоке это
+      // делал describe (Gemini); в Яндекс-потоке без Gemini статус ставит
+      // face-embed, иначе счётчик прогресса висит на 0.
+      await markCompleted(store, photo);
 
       processed++;
 

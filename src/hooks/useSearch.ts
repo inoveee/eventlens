@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PhotoRecord, MatchResult, MatchTier } from "@/lib/types";
+import { useProjectKey } from "@/hooks/useProjectKey";
+import { withProjectParam } from "@/lib/project";
 
 export interface UseSearchReturn {
   searchInput: string;
@@ -32,6 +34,8 @@ export function useSearch(
   const [matchDescription, setMatchDescription] = useState("");
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
+  // Текстовый поиск тоже проектный: без ключа API вернёт пустоту.
+  const projectKey = useProjectKey();
 
   // Debounced search
   useEffect(() => {
@@ -55,7 +59,7 @@ export function useSearch(
     const params = new URLSearchParams({ q: debouncedQuery });
     if (activeFolder) params.set("folder", activeFolder);
 
-    fetch(`/api/search?${params}`)
+    fetch(withProjectParam(`/api/search?${params}`, projectKey))
       .then((res) => res.json())
       .then((data: { results: PhotoRecord[]; source: string }) => {
         if (cancelled) return;
@@ -74,7 +78,7 @@ export function useSearch(
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, activeFolder, matchResults]);
+  }, [debouncedQuery, activeFolder, matchResults, projectKey]);
 
   const handleMatchResults = useCallback(
     (data: {

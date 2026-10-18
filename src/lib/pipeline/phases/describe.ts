@@ -2,9 +2,9 @@
 // Phase: DESCRIBE — Gemini vision analysis + text embeddings.
 // Uses wall-clock guard to bail out before serverless timeout.
 
-import { downloadAsBase64 } from "../drive-client";
 import { GeminiClient } from "../gemini-client";
 import { SupabaseStore } from "../supabase-store";
+import type { PipelineSource } from "../source";
 import type { PipelinePhoto, PhaseResult } from "../types";
 
 const MAX_DURATION_MS = 250_000; // 250s — leave 50s buffer before 300s hard kill
@@ -66,11 +66,12 @@ async function embedDescriptions(
 }
 
 export async function phaseDescribe(
-  apiKey: string,
+  source: PipelineSource,
   geminiApiKey: string,
   retryErrors = false,
+  projectKey = "default",
 ): Promise<PhaseResult> {
-  const store = new SupabaseStore();
+  const store = new SupabaseStore(projectKey);
   const gemini = new GeminiClient(geminiApiKey, 30);
   const errors: string[] = [];
   const startTime = Date.now();
@@ -105,7 +106,7 @@ export async function phaseDescribe(
 
     const fid = photo.drive_file_id;
     try {
-      const img = await downloadAsBase64(fid, apiKey);
+      const img = await source.download(fid, 1200);
       if (!img) {
         await store.updatePhotoMetadata(fid, {
           status: "error",

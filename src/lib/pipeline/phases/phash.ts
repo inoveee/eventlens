@@ -1,15 +1,18 @@
 // @TheTechMargin 2026
 // Phase: PHASH — Compute perceptual hashes for duplicate detection.
 
-import { downloadAsBase64 } from "../drive-client";
 import { computeDhashFromBase64 } from "../phash";
 import { SupabaseStore } from "../supabase-store";
+import type { PipelineSource } from "../source";
 import type { PhaseResult } from "../types";
 
 const MAX_DURATION_MS = 250_000;
 
-export async function phasePhash(apiKey: string): Promise<PhaseResult> {
-  const store = new SupabaseStore();
+export async function phasePhash(
+  source: PipelineSource,
+  projectKey = "default",
+): Promise<PhaseResult> {
+  const store = new SupabaseStore(projectKey);
   const errors: string[] = [];
   const startTime = Date.now();
 
@@ -29,7 +32,7 @@ export async function phasePhash(apiKey: string): Promise<PhaseResult> {
     const fid = photo.drive_file_id;
     try {
       // Download small thumbnail — dHash only needs low-res
-      const img = await downloadAsBase64(fid, apiKey, 64);
+      const img = await source.download(fid, 64);
       if (!img) {
         errors.push(photo.filename);
         continue;

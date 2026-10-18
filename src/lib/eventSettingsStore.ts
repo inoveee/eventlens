@@ -194,6 +194,27 @@ async function deleteFromSupabase(key: string): Promise<void> {
   }
 }
 
+/**
+ * Чистка данных проекта при архивации/удалении: из БД уходят фото,
+ * вектора лиц (каскадом) и сессии поиска. Остаётся только визуал
+ * страницы (обложка, названия, описания) в record проекта.
+ * Ссылка на папку-источник сохраняется — расархивированный проект
+ * может заново синхронизироваться одной кнопкой.
+ */
+export async function purgeProjectIndex(key: string): Promise<void> {
+  if (storageEngine() !== "supabase") return; // файловое хранилище хранит только record
+  try {
+    const { purgeProjectData } = await import("./supabase");
+    const removed = await purgeProjectData(key);
+    if (removed > 0) {
+      console.log(`[eventSettingsStore] purge "${key}": удалено фото ${removed}`);
+    }
+  } catch (err) {
+    // Чистка не должна блокировать удаление/архивацию проекта.
+    console.error(`[eventSettingsStore] purge "${key}" failed:`, err);
+  }
+}
+
 /* ───────────────────────────── Файлы ───────────────────────────── */
 
 function mapFileError(err: unknown, action: string): never {
@@ -401,7 +422,9 @@ export async function duplicateProject(
   const record: SettingsRecord = {
     draft,
     published: null, // копия — черновик: публикация отдельное решение
-    photos: source.photos,
+    // Папка та же, но строк у копии в БД нет — снимок счётчиков
+    // обнуляется, иначе автоингест сочтёт копию готовой.
+    photos: source.photos ? { ...source.photos, processed: null } : null,
     meta: normalizeProjectMeta(
       { ...source.meta, archived: false, createdAt: now },
       defaultProjectMeta(),
@@ -445,6 +468,20 @@ export async function rekeyProject(oldKey: string, newKey: string): Promise<void
   if (storageEngine() === "supabase") {
     const { createServerClient } = await import("./supabase");
     const supabase = createServerClient();
+    // Сначала индекс фото: project_key уходит в photos, вектора лиц
+    // следуют каскадом (ON UPDATE CASCADE в миграции 015).
+    const { error: photosError } = await supabase
+      .from("photos")
+      .update({ project_key: newKey })
+      .eq("project_key", oldKey);
+    if (photosError) {
+      throw new StorageUnavailableError(`Не удалось сменить алиас: ${photosError.message}`);
+    }
+    await supabase
+      .from("match_sessions")
+      .update({ project_key: newKey })
+      .eq("project_key", oldKey);
+
     const { error } = await supabase
       .from("event_settings")
       .update({ event_key: newKey })
@@ -475,6 +512,20 @@ export async function updateProjectMeta(
 ): Promise<SettingsRecord> {
   const record = await readRecord(key);
   if (!(await projectExists(key))) throw new ProjectNotFoundError("Проект не найден");
+
+  // Архивация = полная чистка данных: из БД уходят фото, вектора лиц и
+  // сессии, из record — подключённая папка. Остаётся только визуал
+  // страницы (обложка, названия, описания). Расархивированный проект
+  // подключает папку заново — инжест запустится автоматически.
+  const archiving = patch.archived === true && record.meta?.archived !== true;
+  if (archiving) {
+    await purgeProjectIndex(key);
+    return writeRecord(key, {
+      meta: normalizeProjectMeta({ ...record.meta, ...patch }, record.meta),
+      photos: null,
+    });
+  }
+
   return writeRecord(key, {
     meta: normalizeProjectMeta({ ...record.meta, ...patch }, record.meta),
   });
@@ -483,6 +534,9 @@ export async function updateProjectMeta(
 export async function deleteProject(key: string): Promise<void> {
   assertKey(key);
   if (!(await projectExists(key))) throw new ProjectNotFoundError("Проект не найден");
+  // Удаление проекта чистит и его данные в БД (фото, лица, сессии) —
+  // record уходит вместе с record, тяжёлые таблицы не остаются сиротами.
+  await purgeProjectIndex(key);
   if (storageEngine() === "supabase") {
     await deleteFromSupabase(key);
   } else {

@@ -8,9 +8,13 @@ import type { PipelinePhoto, FaceEmbeddingRow } from "./types";
 
 export class SupabaseStore {
   private client: SupabaseClient;
+  private projectKey: string;
 
-  constructor() {
+  /** projectKey ограничивает все операции одним проектом: индексы фото и
+   *  векторы лиц из разных событий не перезаписывают и не смешиваются. */
+  constructor(projectKey = "default") {
     this.client = createServerClient();
+    this.projectKey = projectKey;
   }
 
   // ── Pagination helper ──
@@ -47,7 +51,10 @@ export class SupabaseStore {
     // Insert-or-skip, then update mutable metadata
     await this.client
       .from("photos")
-      .upsert(photo, { onConflict: "drive_file_id", ignoreDuplicates: true })
+      .upsert(
+        { ...photo, project_key: this.projectKey },
+        { onConflict: "project_key,drive_file_id", ignoreDuplicates: true },
+      )
       .throwOnError();
 
     await this.client
@@ -58,6 +65,7 @@ export class SupabaseStore {
         drive_url: photo.drive_url,
         mime_type: photo.mime_type,
       })
+      .eq("project_key", this.projectKey)
       .eq("drive_file_id", photo.drive_file_id)
       .throwOnError();
   }
@@ -67,19 +75,22 @@ export class SupabaseStore {
     newFileId: string,
     filename: string,
     folder: string,
+    driveUrl?: string,
   ): Promise<void> {
-    const driveUrl = `https://drive.google.com/file/d/${newFileId}/view`;
     const meta = { drive_file_id: newFileId, filename, folder };
+    const photoMeta = driveUrl ? { ...meta, drive_url: driveUrl } : meta;
 
     await this.client
       .from("face_embeddings")
       .update(meta)
+      .eq("project_key", this.projectKey)
       .eq("drive_file_id", oldFileId)
       .throwOnError();
 
     await this.client
       .from("photos")
-      .update({ ...meta, drive_url: driveUrl })
+      .update(photoMeta)
+      .eq("project_key", this.projectKey)
       .eq("drive_file_id", oldFileId)
       .throwOnError();
 
@@ -87,14 +98,23 @@ export class SupabaseStore {
   }
 
   async deletePhoto(driveFileId: string): Promise<void> {
-    await this.client.from("photos").delete().eq("drive_file_id", driveFileId).throwOnError();
+    await this.client
+      .from("photos")
+      .delete()
+      .eq("project_key", this.projectKey)
+      .eq("drive_file_id", driveFileId)
+      .throwOnError();
   }
 
   // ── Queries ──
 
   async getAllPhotos(): Promise<PipelinePhoto[]> {
     return this.paginate((offset, limit) =>
-      this.client.from("photos").select("*").range(offset, offset + limit - 1),
+      this.client
+        .from("photos")
+        .select("*")
+        .eq("project_key", this.projectKey)
+        .range(offset, offset + limit - 1),
     );
   }
 
@@ -103,6 +123,7 @@ export class SupabaseStore {
       this.client
         .from("photos")
         .select("*")
+        .eq("project_key", this.projectKey)
         .in("status", statuses)
         .range(offset, offset + limit - 1),
     );
@@ -113,6 +134,7 @@ export class SupabaseStore {
       this.client
         .from("photos")
         .select("*")
+        .eq("project_key", this.projectKey)
         .eq("status", "completed")
         .is("description_embedding", null)
         .range(offset, offset + limit - 1),
@@ -124,6 +146,7 @@ export class SupabaseStore {
       this.client
         .from("photos")
         .select("*")
+        .eq("project_key", this.projectKey)
         .eq("status", "completed")
         .is("phash", null)
         .range(offset, offset + limit - 1),
@@ -135,6 +158,7 @@ export class SupabaseStore {
       this.client
         .from("face_embeddings")
         .select("drive_file_id")
+        .eq("project_key", this.projectKey)
         .range(offset, offset + limit - 1),
     );
     return new Set(rows.map((r) => r.drive_file_id));
@@ -149,6 +173,7 @@ export class SupabaseStore {
     await this.client
       .from("photos")
       .update(metadata)
+      .eq("project_key", this.projectKey)
       .eq("drive_file_id", driveFileId)
       .throwOnError();
   }
@@ -157,6 +182,7 @@ export class SupabaseStore {
     await this.client
       .from("photos")
       .update({ description_embedding: null })
+      .eq("project_key", this.projectKey)
       .eq("drive_file_id", driveFileId)
       .throwOnError();
   }
@@ -168,6 +194,7 @@ export class SupabaseStore {
     await this.client
       .from("face_embeddings")
       .update(metadata)
+      .eq("project_key", this.projectKey)
       .eq("drive_file_id", driveFileId)
       .throwOnError();
   }
@@ -182,6 +209,7 @@ export class SupabaseStore {
       const { data } = await this.client
         .from("photos")
         .update({ description_embedding: embedding })
+        .eq("project_key", this.projectKey)
         .eq("drive_file_id", driveFileId)
         .is("description_embedding", null)
         .select("drive_file_id");
@@ -194,7 +222,10 @@ export class SupabaseStore {
   async upsertFaceEmbedding(row: FaceEmbeddingRow): Promise<void> {
     await this.client
       .from("face_embeddings")
-      .upsert(row, { onConflict: "drive_file_id,face_index" })
+      .upsert(
+        { ...row, project_key: this.projectKey },
+        { onConflict: "project_key,drive_file_id,face_index" },
+      )
       .throwOnError();
   }
 
@@ -202,6 +233,7 @@ export class SupabaseStore {
     await this.client
       .from("photos")
       .update({ phash: Number(phashValue) })
+      .eq("project_key", this.projectKey)
       .eq("drive_file_id", driveFileId)
       .throwOnError();
   }

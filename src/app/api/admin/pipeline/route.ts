@@ -1,10 +1,13 @@
 // @TheTechMargin 2026
-// Pipeline orchestrator: accepts phase, dispatches native TypeScript work.
-// Replaces the previous child_process.spawn Python approach.
+// Pipeline orchestrator: accepts phase + project, dispatches native
+// TypeScript work. Источник (Google Drive / Яндекс.Диск) берётся из
+// подключённой папки проекта, а не из глобального PHOTO_SOURCE.
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
-import { config } from "@/lib/config";
+import { coerceProjectKey } from "@/lib/eventSettings";
+import { resolvePhotoSource } from "@/lib/eventSettingsStore";
+import { driveSource, yandexSource, type PipelineSource } from "@/lib/pipeline/source";
 import { phaseSync } from "@/lib/pipeline/phases/sync";
 import { phaseScan } from "@/lib/pipeline/phases/scan";
 import { phaseDescribe } from "@/lib/pipeline/phases/describe";
@@ -33,64 +36,89 @@ function getEnvOrThrow(name: string): string {
   return val;
 }
 
-async function runPhase(phase: Phase, retryErrors = false): Promise<PhaseResult> {
-  if (config.photoSource === "yandex") {
-    return {
-      phase,
-      processed: 0,
-      remaining: 0,
-      done: true,
-      errors: [
-        "Пайплайн обработки работает только с источником Google Drive. Источник PHOTO_SOURCE=yandex показывает фото из ссылки напрямую.",
-      ],
-    };
+/** Источник фото проекта: подключённая папка, иначе env-фолбэк default. */
+async function resolvePipelineSource(project: string): Promise<PipelineSource> {
+  const source = await resolvePhotoSource(project);
+  if (!source.configured || !source.value) {
+    throw new Error(
+      `У проекта «${project}» не подключена папка с фотографиями — подключите ссылку на диске.`,
+    );
   }
-
+  if (source.provider === "yandex") {
+    return yandexSource(source.value);
+  }
   const apiKey = getEnvOrThrow("GOOGLE_API_KEY");
-  const driveFolderId = getEnvOrThrow("GOOGLE_DRIVE_FOLDER_ID");
+  return driveSource(apiKey, source.value);
+}
+
+async function runPhase(
+  phase: Phase,
+  project: string,
+  retryErrors = false,
+): Promise<PhaseResult> {
+  const source = await resolvePipelineSource(project);
 
   switch (phase) {
     case "sync":
-      return phaseSync(apiKey, driveFolderId);
+      return phaseSync(source, project);
 
     case "scan":
-      return phaseScan(apiKey, driveFolderId);
+      return phaseScan(source, project);
 
     case "describe": {
-      const geminiKey = process.env.GEMINI_API_KEY || apiKey;
-      return phaseDescribe(apiKey, geminiKey, retryErrors);
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
+        return {
+          phase: "describe",
+          processed: 0,
+          remaining: 0,
+          done: true,
+          errors: [],
+        };
+      }
+      return phaseDescribe(source, geminiKey, retryErrors, project);
     }
 
     case "embeddings": {
-      const geminiKey = process.env.GEMINI_API_KEY || apiKey;
-      return phaseEmbed(geminiKey);
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
+        return { phase: "embed", processed: 0, remaining: 0, done: true, errors: [] };
+      }
+      return phaseEmbed(geminiKey, project);
     }
 
     case "face-embed": {
       const faceApiUrl = getEnvOrThrow("FACE_API_URL");
       const faceApiSecret = process.env.FACE_API_SECRET || "";
-      return phaseFaceEmbed(apiKey, faceApiUrl, faceApiSecret);
+      return phaseFaceEmbed(source, faceApiUrl, faceApiSecret, project);
     }
 
     case "phash":
-      return phasePhash(apiKey);
+      return phasePhash(source, project);
 
     case "full": {
-      // Run phases in sequence, stopping at the first incomplete one
-      const geminiKey = process.env.GEMINI_API_KEY || apiKey;
+      // Последовательность: синхронизация → скан → (текст: Gemini,
+      // если настроен) → перцептуальные хэши → вектора лиц. Останавливаемся
+      // на первой незавершённой фазе, клиент повторяет вызов.
+      const geminiKey = process.env.GEMINI_API_KEY;
       const phases: Array<() => Promise<PhaseResult>> = [
-        () => phaseSync(apiKey, driveFolderId),
-        () => phaseScan(apiKey, driveFolderId),
-        () => phaseDescribe(apiKey, geminiKey, retryErrors),
-        () => phaseEmbed(geminiKey),
-        () => phasePhash(apiKey),
+        () => phaseSync(source, project),
+        () => phaseScan(source, project),
       ];
 
-      // Add face-embed if configured
+      if (geminiKey) {
+        phases.push(
+          () => phaseDescribe(source, geminiKey, retryErrors, project),
+          () => phaseEmbed(geminiKey, project),
+        );
+      }
+
+      phases.push(() => phasePhash(source, project));
+
       if (process.env.FACE_API_URL) {
         const faceUrl = process.env.FACE_API_URL;
         const faceApiSecret = process.env.FACE_API_SECRET || "";
-        phases.push(() => phaseFaceEmbed(apiKey, faceUrl, faceApiSecret));
+        phases.push(() => phaseFaceEmbed(source, faceUrl, faceApiSecret, project));
       }
 
       let lastResult: PhaseResult = {
@@ -131,7 +159,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { phase?: string; retryErrors?: boolean };
+  let body: { phase?: string; retryErrors?: boolean; project?: string };
   try {
     body = await request.json();
   } catch {
@@ -146,8 +174,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const project =
+    coerceProjectKey(body.project) ??
+    coerceProjectKey(request.nextUrl.searchParams.get("project")) ??
+    "default";
+
   try {
-    const result = await runPhase(phase, body.retryErrors);
+    const result = await runPhase(phase, project, body.retryErrors);
     return NextResponse.json({
       success: true,
       ...result,

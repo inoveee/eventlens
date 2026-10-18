@@ -231,6 +231,12 @@ interface OrganizerContextValue {
   connectPhotos: (url: string) => Promise<{ ok: boolean; error: string | null }>;
   syncPhotos: () => Promise<{ ok: boolean; error: string | null }>;
 
+  /** Автоингест: цикл обработки запускается сам после подключения папки
+   *  и возобновляется при открытии недоделанного проекта. */
+  ingest: { running: boolean; error: string | null };
+  /** Ручной перезапуск инжеста (кнопка «Обработать фотографии»). */
+  runIngest: () => Promise<void>;
+
   openPublicPage: () => void;
   openPreview: () => void;
 
@@ -299,6 +305,13 @@ export function OrganizerProvider({
   }));
   const [storage, setStorage] = useState<"supabase" | "file" | null>(null);
   const [busy, setBusy] = useState(false);
+  // Автоингест: панель сама гоняет пайплайн (scan → face-embed → phash)
+  // после подключения папки и при открытии недоделанного проекта.
+  const [ingest, setIngest] = useState<{ running: boolean; error: string | null }>({
+    running: false,
+    error: null,
+  });
+  const ingestGuardRef = useRef(false);
 
   const request = useProjectRequest(projectKey);
 
@@ -506,6 +519,103 @@ export function OrganizerProvider({
     [connectRequest],
   );
 
+  /** Живые счётчики обработки из БД — панель опрашивает их во время
+   *  инжеста, чтобы прогресс двигался без повторного пробы листинга. */
+  const fetchProcessingStats = useCallback(async () => {
+    try {
+      const res = await request("/api/event/photos", {
+        method: "POST",
+        body: JSON.stringify({ action: "stats", project: projectKey }),
+      });
+      const data = (await res.json()) as {
+        processed?: { completed: number; total: number; errors: number } | null;
+      };
+      if (data.processed) {
+        setPhotos((prev) => (prev ? { ...prev, processed: data.processed! } : prev));
+      }
+    } catch {}
+  }, [request, projectKey]);
+
+  /**
+   * Полный инжест проекта в опросном цикле: сервер работает до wall-clock
+   * лимита фазы, клиент перезапускает до `done`. Guard от параллельных
+   * циклов — повторные вызовы (connect + авто-возобновление) схлопываются.
+   */
+  const runIngest = useCallback(async () => {
+    if (ingestGuardRef.current) return;
+    ingestGuardRef.current = true;
+    setIngest({ running: true, error: null });
+    try {
+      for (let iteration = 0; iteration < 60; iteration++) {
+        const res = await request("/api/admin/pipeline", {
+          method: "POST",
+          body: JSON.stringify({ phase: "full", project: projectKey }),
+        });
+        const data = (await res.json()) as {
+          done?: boolean;
+          error?: string;
+          errors?: string[];
+        };
+        if (!res.ok) {
+          setIngest({
+            running: false,
+            error: data.error || "Не удалось обработать фотографии — попробуйте позже.",
+          });
+          return;
+        }
+        await fetchProcessingStats();
+        if (data.done) {
+          setIngest({ running: false, error: null });
+          return;
+        }
+      }
+      setIngest({
+        running: false,
+        error: "Обработка не завершилась за отведённое время — нажмите «Обновить счётчики».",
+      });
+    } catch {
+      setIngest({
+        running: false,
+        error: "Связь с сервером прервалась — обработку можно продолжить, обновив страницу.",
+      });
+    } finally {
+      ingestGuardRef.current = false;
+    }
+  }, [request, projectKey, fetchProcessingStats]);
+
+  // Автоингест: запускается после подключения/синхронизации папки…
+  const handleConnect = useCallback(
+    (url: string) =>
+      connectPhotos(url).then((result) => {
+        if (result.ok) void runIngest();
+        return result;
+      }),
+    [connectPhotos, runIngest],
+  );
+
+  const handleSync = useCallback(
+    () =>
+      syncPhotos().then((result) => {
+        if (result.ok) void runIngest();
+        return result;
+      }),
+    [syncPhotos, runIngest],
+  );
+
+  // …и возобновляется сам при открытии страницы недоделанного проекта
+  // (например, инжест прервали деплоем или закрыли вкладку). Одна попытка
+  // на открытие: если обработка не доделалась, ручной запуск — кнопкой.
+  const resumeAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (loading || resumeAttemptedRef.current || ingestGuardRef.current) return;
+    if (photos?.status !== "connected") return;
+    const p = photos.processed;
+    const incomplete = !p || p.total === 0 || p.completed + p.errors < p.total;
+    if (!incomplete) return;
+    resumeAttemptedRef.current = true;
+    void runIngest();
+  }, [loading, photos?.status, photos?.processed?.total, runIngest]);
+
   /** Публичная страница проекта: /p/<key>. */
   const publicUrl = useCallback(
     () => `/p/${encodeURIComponent(projectKey)}`,
@@ -560,8 +670,11 @@ export function OrganizerProvider({
       resetBranding,
       changeAlias,
       reload: load,
-      connectPhotos,
-      syncPhotos,
+      // Подключение/синхронизация сразу запускают автоингест.
+      connectPhotos: handleConnect,
+      syncPhotos: handleSync,
+      ingest,
+      runIngest,
       openPublicPage,
       openPreview,
       notify,
@@ -588,8 +701,10 @@ export function OrganizerProvider({
       resetBranding,
       changeAlias,
       load,
-      connectPhotos,
-      syncPhotos,
+      handleConnect,
+      handleSync,
+      ingest,
+      runIngest,
       openPublicPage,
       openPreview,
       notify,

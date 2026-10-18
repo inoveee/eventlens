@@ -42,8 +42,9 @@ export async function POST(request: NextRequest) {
             folder: folder.name === "root" ? "" : folder.name,
             mime_type: file.mimeType,
             status: "pending",
+            project_key: "default",
           },
-          { onConflict: "drive_file_id", ignoreDuplicates: true },
+          { onConflict: "project_key,drive_file_id", ignoreDuplicates: true },
         );
         if (!error) inserted++;
       }

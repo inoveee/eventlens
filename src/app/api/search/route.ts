@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
   const rawQuery = request.nextUrl.searchParams.get("q") || "";
   const query = rawQuery.slice(0, 200).replace(/<[^>]*>/g, "").trim();
   const folder = (request.nextUrl.searchParams.get("folder") || "").slice(0, 100).replace(/<[^>]*>/g, "").trim();
+  // raw: без project в запросе — искать везде (обратная совместимость),
+  // с project — только в рамках проекта.
+  const project = request.nextUrl.searchParams.get("project");
 
   if (!query && !folder) {
     return NextResponse.json({ results: [], source: "none" });
@@ -49,7 +52,7 @@ export async function GET(request: NextRequest) {
   try {
     const [semanticResults, textResults] = await Promise.all([
       embedQuery(query).then((embedding) =>
-        embedding ? searchPhotosSemantic(embedding, 0.35, 30) : []
+        embedding ? searchPhotosSemantic(embedding, 0.35, 30, project) : []
       ),
       (async () => {
         const { createServerClient } = await import("@/lib/supabase");
@@ -57,6 +60,7 @@ export async function GET(request: NextRequest) {
         const { data } = await supabase.rpc("search_photos", {
           query_text: query,
           result_limit: 60,
+          p_project_key: project,
         });
         return (data as PhotoRow[]) || [];
       })(),

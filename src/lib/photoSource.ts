@@ -236,8 +236,10 @@ export async function probePhotoSource(rawUrl: string): Promise<ProbeResult> {
 /**
  * Прогресс ИИ-обработки из базы. null — Supabase не подключён,
  * обработка не ведётся (тогда UI честно показывает «не подключено»).
+ * projectKey ограничивает счётчик одним проектом: без него админка
+ * показывает сводные цифры по всем проектам.
  */
-export async function readProcessingStats(): Promise<{
+export async function readProcessingStats(projectKey?: string | null): Promise<{
   completed: number;
   total: number;
   errors: number;
@@ -251,18 +253,17 @@ export async function readProcessingStats(): Promise<{
   try {
     const { createServerClient } = await import("./supabase");
     const supabase = createServerClient();
+    const base = () => {
+      const q = supabase
+        .from("photos")
+        .select("id", { count: "exact", head: true })
+        .neq("hidden", true);
+      return projectKey ? q.eq("project_key", projectKey) : q;
+    };
     const [total, completed, errors] = await Promise.all([
-      supabase.from("photos").select("id", { count: "exact", head: true }).neq("hidden", true),
-      supabase
-        .from("photos")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "completed")
-        .neq("hidden", true),
-      supabase
-        .from("photos")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "error")
-        .neq("hidden", true),
+      base(),
+      base().eq("status", "completed"),
+      base().eq("status", "error"),
     ]);
     if (total.error || completed.error || errors.error) return null;
     return {

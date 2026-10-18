@@ -25,7 +25,8 @@ function providerLabel(provider: PhotoConnection["provider"]): string {
 }
 
 export default function PhotosPage() {
-  const { photos, connectPhotos, syncPhotos, busy, notify, reload } = useOrganizer();
+  const { photos, connectPhotos, syncPhotos, busy, notify, reload, ingest, runIngest } =
+    useOrganizer();
 
   const [url, setUrl] = useState(photos?.url ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -223,10 +224,33 @@ export default function PhotosPage() {
                   />
                 </div>
                 <p className="org-hint mt-2">
-                  {processed.errors > 0
-                    ? `Не обработано с ошибкой: ${processed.errors} — их можно перезапустить в технической панели.`
-                    : "Поиск по описанию и совпадение лиц работают по обработанным фото."}
+                  {ingest.running
+                    ? "ИИ-обработка идёт — можно закрыть страницу, она продолжится при следующем открытии."
+                    : processed.errors > 0
+                      ? `Не обработано с ошибкой: ${processed.errors} — их можно перезапустить в технической панели.`
+                      : "Поиск по описанию и совпадение лиц работают по обработанным фото."}
                 </p>
+                {!ingest.running && processPercent < 100 && (
+                  <button
+                    className="org-btn org-btn-secondary mt-3"
+                    onClick={() => void runIngest()}
+                  >
+                    Продолжить обработку
+                  </button>
+                )}
+              </div>
+            ) : ingest.running ? (
+              <div className="mt-3 flex items-start gap-3 rounded-[14px] bg-[#f4f4f6] px-4 py-3.5">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[var(--org-border)] border-t-[var(--org-text)]" aria-hidden />
+                <div>
+                  <p className="text-[13.5px] font-medium">
+                    ИИ-обработка запущена — находим лица и считаем отпечатки
+                  </p>
+                  <p className="org-hint mt-0.5">
+                    Обычно занимает несколько минут на 400 фото. Можно закрыть
+                    страницу — обработка продолжится при следующем открытии.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="mt-3 flex items-start gap-3 rounded-[14px] bg-[#f4f4f6] px-4 py-3.5">
@@ -243,6 +267,20 @@ export default function PhotosPage() {
                     Галерея и просмотр фотографий работают и без них.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {ingest.error && (
+              <div className="mt-4 rounded-[14px] border border-[#f0c8c5] bg-[var(--org-err-bg)] px-4 py-3">
+                <p className="text-[13.5px] font-medium text-[var(--org-err)]">
+                  {ingest.error}
+                </p>
+                <button
+                  className="org-btn org-btn-secondary mt-2"
+                  onClick={() => void runIngest()}
+                >
+                  Повторить обработку
+                </button>
               </div>
             )}
           </div>

@@ -25,6 +25,7 @@ function vectorResponse(
   matches: MatchResult[],
   embedding: number[] | null,
   extra?: { error?: string; recommendations?: string[] },
+  projectKey?: string,
 ) {
   saveMatchSession({
     tier: "vector",
@@ -32,6 +33,7 @@ function vectorResponse(
     topConfidence: matches[0]?.confidence ?? null,
     queryEmbedding: embedding,
     matchedPhotoIds: matches.map((m) => m.photo.driveFileId),
+    projectKey,
   });
   return NextResponse.json({
     matches,
@@ -128,7 +130,7 @@ async function resolveMatchedPhotos(
 
   const { getPhotosByDriveFileIds } = await import("@/lib/supabase");
   const { rowToPhoto } = await import("@/lib/photos");
-  const photoRows = await getPhotosByDriveFileIds(fileIds);
+  const photoRows = await getPhotosByDriveFileIds(fileIds, project);
   for (const row of photoRows) map.set(row.drive_file_id, rowToPhoto(row));
   return map;
 }
@@ -182,7 +184,7 @@ async function vectorMatch(imageBase64: string, project?: string) {
   } = await embedRes.json();
 
   if (embedData.count === 0) {
-    return vectorResponse([], null, { error: "No face detected in the uploaded photo. Please upload a clear photo of a person." });
+    return vectorResponse([], null, { error: "No face detected in the uploaded photo. Please upload a clear photo of a person." }, project);
   }
 
   const bestFace = embedData.faces.reduce((a, b) => (a.det_score > b.det_score ? a : b));
@@ -194,7 +196,7 @@ async function vectorMatch(imageBase64: string, project?: string) {
   // в одном групповом фото съедали лимит строк). 200 покрывает всё
   // настоящее, чужие выше порога — редкие единичные залеты.
   const tRpc = Date.now();
-  const faceMatches = await matchFacesByEmbedding(bestFace.embedding, VECTOR_THRESHOLD, 200);
+  const faceMatches = await matchFacesByEmbedding(bestFace.embedding, VECTOR_THRESHOLD, 200, project);
   const tRpcMs = Date.now() - tRpc;
 
   if (faceMatches.length === 0) {
@@ -202,9 +204,9 @@ async function vectorMatch(imageBase64: string, project?: string) {
     if (similar.length > 0 && similar[0].match_count > 0) {
       return vectorResponse([], bestFace.embedding, {
         error: "We've seen a similar face before but couldn't match this time. Try a clearer, well-lit photo.",
-      });
+      }, project);
     }
-    return vectorResponse([], bestFace.embedding);
+    return vectorResponse([], bestFace.embedding, undefined, project);
   }
 
   const bestByPhoto = new Map<string, { similarity: number; face_index: number }>();
@@ -247,5 +249,5 @@ async function vectorMatch(imageBase64: string, project?: string) {
 
   return vectorResponse(matches, bestFace.embedding, {
     recommendations: recommendations.length > 0 ? recommendations : undefined,
-  });
+  }, project);
 }

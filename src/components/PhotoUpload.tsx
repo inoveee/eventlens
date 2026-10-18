@@ -36,15 +36,64 @@ export default function PhotoUpload({
     }
   }, []);
 
-  const processFile = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
+  /** HEIC/HEIF не декодируется в canvas — принимаем «как есть». */
+  const isHeic = (f: File) =>
+    /heic|heif/i.test(f.type) || /\.heic|\.heif$/i.test(f.name);
+
+  /**
+   * Большие фото ужимаются на стороне клиента: прокси хостинга обрывает
+   * тела запросов на 10 МБ, и селфи с зеркалки приходило обрезанным.
+   * JPEG 2048px ~ 0.85 весит ~0.5–1 МБ — с запасом проходит лимит.
+   */
+  async function downscaleImage(file: File): Promise<File> {
+    const bitmap = await createImageBitmap(file);
+    try {
+      let side = Math.max(bitmap.width, bitmap.height);
+      let quality = 0.85;
+      // Цикл ужатия: 2048 → 1280 → 960 — до размера под лимит.
+      for (const maxSide of [2048, 1280, 960]) {
+        const scale = Math.min(1, maxSide / side);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/jpeg", quality),
+        );
+        if (blob && blob.size < 9.5 * 1024 * 1024) {
+          return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
+            type: "image/jpeg",
+          });
+        }
+        side = maxSide;
+        quality = 0.75;
+      }
+      throw new Error("downscale-failed");
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  const processFile = async (rawFile: File) => {
+    if (!rawFile.type.startsWith("image/") && !isHeic(rawFile)) {
       setError("Нужен файл изображения");
       return;
     }
 
+    let file = rawFile;
     if (file.size > 10 * 1024 * 1024) {
-      setError("Файл слишком большой — максимум 10 МБ");
-      return;
+      if (isHeic(file)) {
+        // Canvas не умеет HEIC — ужать нельзя, лимит прокси не поднять.
+        setError("HEIC-файл больше 10 МБ — сделайте фото в JPG или уменьшите его");
+        return;
+      }
+      setStatusText("Подготавливаем фото…");
+      try {
+        file = await downscaleImage(file);
+      } catch {
+        setError("Не удалось уменьшить фото — попробуйте файл поменьше");
+        return;
+      }
     }
 
     setError(null);
@@ -69,7 +118,11 @@ export default function PhotoUpload({
       // отпечаток попадал под блок в течение часа), как и любой не-JSON
       // контент (raw bytes, form, multipart). Один нейтральный ключ
       // проходит стабильно.
-      const ext = file.type.split("/")[1] || "jpeg";
+      const ext =
+        file.type.split("/")[1] ||
+        (isHeic(file) ? "heic" : "") ||
+        file.name.split(".").pop()?.toLowerCase() ||
+        "jpeg";
 
       try {
         const controller = new AbortController();

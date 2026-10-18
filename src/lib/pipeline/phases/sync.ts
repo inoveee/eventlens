@@ -1,36 +1,26 @@
 // @TheTechMargin 2026
-// Phase: SYNC — Reconcile Google Drive state with Supabase.
+// Phase: SYNC — Reconcile source state (Drive/Яндекс.Диск) with Supabase.
 // Detects renames, moves, and deletions.
 
-import { listDriveImages, listDriveSubfolders } from "../drive-client";
 import { SupabaseStore } from "../supabase-store";
-import type { DriveEntry, PhaseResult } from "../types";
+import type { PipelineSource } from "../source";
+import type { PhaseResult } from "../types";
 
 export async function phaseSync(
-  apiKey: string,
-  driveFolderId: string,
+  source: PipelineSource,
+  projectKey = "default",
 ): Promise<PhaseResult> {
-  const store = new SupabaseStore();
+  const store = new SupabaseStore(projectKey);
   const errors: string[] = [];
 
-  // Fetch Drive folder structure
-  const subfolders = await listDriveSubfolders(driveFolderId, apiKey);
-  const allFolders = [{ id: driveFolderId, name: "" }, ...subfolders];
-
-  // Build Drive maps
-  const driveById = new Map<string, DriveEntry>();
-  const driveByName = new Map<string, DriveEntry>();
-
-  for (const folder of allFolders) {
-    const files = await listDriveImages(folder.id, apiKey);
-    for (const f of files) {
-      const entry: DriveEntry = { id: f.id, name: f.name, folder: folder.name };
-      driveById.set(f.id, entry);
-      driveByName.set(f.name, entry);
-    }
+  // Строим карты источника: по id (канон) и по имени (для переименований).
+  const byId = new Map<string, { name: string; folder: string }>();
+  const byName = new Map<string, { id: string; folder: string }>();
+  for (const f of await source.listImages()) {
+    byId.set(f.id, { name: f.name, folder: f.folder });
+    if (!byName.has(f.name)) byName.set(f.name, { id: f.id, folder: f.folder });
   }
 
-  // Fetch all tracked photos
   const allPhotos = await store.getAllPhotos();
   if (!allPhotos.length) {
     return { phase: "sync", processed: 0, remaining: 0, done: true, errors: [] };
@@ -45,10 +35,10 @@ export async function phaseSync(
       const fid = photo.drive_file_id;
       const sname = photo.filename || "";
       const sfolder = photo.folder || "";
-      const entry = driveById.get(fid);
+      const entry = byId.get(fid);
 
       if (entry) {
-        // File still exists in Drive — check for renames/moves
+        // Файл на месте — фиксируем переименования/переезды.
         const changes: Record<string, string> = {};
         if (entry.name !== sname) changes.filename = entry.name;
         if (entry.folder !== sfolder) changes.folder = entry.folder;
@@ -60,10 +50,16 @@ export async function phaseSync(
           updated++;
         }
       } else {
-        // Not found by ID — try to reconnect by filename
-        const match = driveByName.get(sname);
+        // Нет по id — пробуем переподключить по имени файла.
+        const match = byName.get(sname);
         if (match && match.id !== fid) {
-          await store.reconnectPhoto(fid, match.id, sname, match.folder);
+          await store.reconnectPhoto(
+            fid,
+            match.id,
+            sname,
+            match.folder,
+            source.publicUrl(match.id),
+          );
           reconnected++;
         } else {
           await store.deletePhoto(fid);
@@ -76,7 +72,9 @@ export async function phaseSync(
   }
 
   const processed = updated + reconnected + orphaned;
-  console.log(`[sync] ${updated} updated, ${reconnected} reconnected, ${orphaned} orphaned`);
+  console.log(
+    `[sync:${source.provider}] ${updated} updated, ${reconnected} reconnected, ${orphaned} orphaned`,
+  );
 
   return { phase: "sync", processed, remaining: 0, done: true, errors };
 }

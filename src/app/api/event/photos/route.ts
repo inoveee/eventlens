@@ -39,6 +39,11 @@ export async function POST(request: NextRequest) {
     const record = await readRecord(key);
 
     let target = (body.url || "").trim();
+    // Живые счётчики обработки: страница фотографий опрашивает их во время
+    // инжеста, чтобы прогресс двигался без повторного пробы листинга.
+    if (body.action === "stats") {
+      return NextResponse.json({ processed: await readProcessingStats(key) });
+    }
     if (body.action === "sync") {
       target = record.photos?.url || "";
       if (!target) {
@@ -102,7 +107,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ photos: next.photos, error: probe.error }, { status: 422 });
     }
 
-    const processed = await readProcessingStats();
+    const processed = await readProcessingStats(key);
     const now = new Date().toISOString();
     const next = await writeRecord(key, {
       photos: {
