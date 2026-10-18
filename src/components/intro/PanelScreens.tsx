@@ -138,8 +138,18 @@ function TopBar() {
  * Обёртка «скриншота» панели: десктопный макет шириной 1000px
  * масштабируется трансформом под ширину контейнера — на мобильных
  * экран целиком влезает без горизонтального скролла.
+ * `frameHeight` фиксирует высоту кадра (в px макета) — соседние
+ * экраны получаются одинаковыми блоками при разном объёме контента.
  */
-export function PanelFrame({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function PanelFrame({
+  children,
+  frameHeight,
+  className = "",
+}: {
+  children: ReactNode;
+  frameHeight?: number;
+  className?: string;
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -152,13 +162,13 @@ export function PanelFrame({ children, className = "" }: { children: ReactNode; 
     const update = () => {
       const s = Math.min(1, wrap.clientWidth / 1000);
       setScale(s);
-      setHeight(inner.offsetHeight * s); // transform не влияет на layout-высоту
+      setHeight((frameHeight ?? inner.offsetHeight) * s);
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(wrap);
     return () => ro.disconnect();
-  }, []);
+  }, [frameHeight]);
 
   return (
     <div
@@ -168,8 +178,13 @@ export function PanelFrame({ children, className = "" }: { children: ReactNode; 
     >
       <div
         ref={innerRef}
-        className="w-[1000px] origin-top-left"
-        style={{ transform: `scale(${scale})`, background: C.bg, color: C.text }}
+        className="w-[1000px] origin-top-left overflow-hidden"
+        style={{
+          transform: `scale(${scale})`,
+          height: frameHeight,
+          background: C.bg,
+          color: C.text,
+        }}
       >
         {children}
       </div>

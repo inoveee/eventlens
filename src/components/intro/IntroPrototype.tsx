@@ -548,18 +548,20 @@ export function IntroPrototype({ onLogin }: { onLogin?: () => void } = {}) {
             ))}
           </ul>
 
-          {/* Оба экрана панели — компактно, в две колонки */}
+          {/* Оба экрана панели — компактно, в две колонки (min-w-0 обязателен:
+              иначе grid-item не сжимается под 1000px-макет и на мобиле
+              панель вылезает за экран с горизонтальным скроллом) */}
           <div className="rv rv-d2 mt-10 grid gap-5 lg:grid-cols-2">
-            <div>
-              <PanelFrame>
+            <div className="min-w-0">
+              <PanelFrame frameHeight={700}>
                 <OverviewScreen />
               </PanelFrame>
               <p className="mt-3 text-center text-[12.5px] text-white/30">
                 «Обзор»: подключение фото, оформление и публикация страницы
               </p>
             </div>
-            <div>
-              <PanelFrame>
+            <div className="min-w-0">
+              <PanelFrame frameHeight={620}>
                 <AppearanceScreen />
               </PanelFrame>
               <p className="mt-3 text-center text-[12.5px] text-white/30">
