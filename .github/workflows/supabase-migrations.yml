@@ -56,7 +56,9 @@ jobs:
               --data-binary "$(jq -Rs '{query: .}' < "$f")" \
               "${API}/database/query")
             code=$(echo "$resp" | tail -n1)
-            if [ "$code" != "201" ]; then
+            # 201 — обычный ответ Management API; 200 отдаёт, напр.,
+            # ALTER TABLE без возвращаемой выборки.
+            if [ "$code" != "201" ] && [ "$code" != "200" ]; then
               echo "$resp"
               exit 1
             fi
@@ -65,7 +67,7 @@ jobs:
               -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
               -H "Content-Type: application/json" \
               --data-binary "$(jq -Rs --arg v "$v" --arg n "${base%.sql}" \
-                '{query: ("insert into supabase_migrations.schema_migrations (version, statements, name, created_by) values (\x27" + $v + "\x27, to_jsonb(array[\x27" + . + "\x27]), \x27" + $n + "\x27, \x27github-actions\x27) on conflict (version) do nothing;")}' )" \
+                '{query: ("insert into supabase_migrations.schema_migrations (version, statements, name, created_by) values ('"'"'" + $v + "'"'"', to_jsonb(array['"'"'" + . + "'"'"']), '"'"'" + $n + "'"'"', '"'"'github-actions'"'"') on conflict (version) do nothing;")}' )" \
               "${API}/database/query" > /dev/null
             echo "  зафиксирована версия $v"
           done
