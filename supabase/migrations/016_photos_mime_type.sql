@@ -6,3 +6,4 @@
 
 ALTER TABLE photos
   ADD COLUMN IF NOT EXISTS mime_type text;
+
