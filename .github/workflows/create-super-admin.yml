@@ -45,7 +45,7 @@ jobs:
           API="https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}"
 
           # argon2id-хеш считается здесь же — открытый текст пароля в SQL не идёт.
-          HASH=$(node -e '
+          HASH=$(NODE_PATH="$RUNNER_TEMP/argon/node_modules" node -e '
             const { hash } = require("@node-rs/argon2");
             hash(process.env.SUPER_ADMIN_PASSWORD).then((h) => process.stdout.write(h));
           ')
