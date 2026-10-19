@@ -22,8 +22,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Установить зависимости (нужен argon2)
-        run: npm ci
+      # npm ci здесь не используется: package-lock содержит file:-записи,
+      # которые не инстались в CI. Для хеширования нужен только argon2.
+      - name: Установить argon2
+        run: npm install --prefix "$RUNNER_TEMP/argon" --no-audit --no-fund @node-rs/argon2
 
       - name: Создать super_admin
         env:
