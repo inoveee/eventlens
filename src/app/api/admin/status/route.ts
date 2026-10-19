@@ -1,12 +1,14 @@
 // @TheTechMargin 2026
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/adminAuth";
 import { createServerClient } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdminAccess(
+    request,
+    request.nextUrl.searchParams.get("project"),
+  );
+  if (!auth.ok) return auth.response;
 
   try {
     const supabase = createServerClient();

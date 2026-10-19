@@ -215,6 +215,104 @@ export async function purgeProjectIndex(key: string): Promise<void> {
   }
 }
 
+/* ────────────────────────── Security-поля проекта ────────────────────────── */
+
+/**
+ * Поля доступа/брендинга проекта, живущие отдельно от настроек страницы
+ * (миграция 018): пароль галереи (argon2id), whitelabel-флаг, активность.
+ * Для файлового движка (локальная разработка без Supabase) возвращаются
+ * безопасные дефолты: пароль не задан, whitelabel выключен, проект активен.
+ */
+export interface ProjectAccess {
+  /** argon2id-хеш пароля галереи; null — пароль не задан. */
+  galleryPasswordHash: string | null;
+  /** Whitelabel: true — кастомный credit организатора вместо платформы. */
+  whitelabelEnabled: boolean;
+  /** Активен ли проект (неактивный не отдаёт галерею и блокирует админа). */
+  isActive: boolean;
+}
+
+const ACCESS_COLUMNS = "gallery_password_hash, whitelabel_enabled, is_active";
+
+function missingAccessTable(error: { code?: string; message?: string }): boolean {
+  return error.code === "42P01" || /gallery_password_hash/i.test(error.message || "");
+}
+
+/** Читает security-поля проекта. Для несуществующего/недоступного — дефолты. */
+export async function readProjectAccess(
+  key: string = DEFAULT_PROJECT_KEY,
+): Promise<ProjectAccess> {
+  const fallback: ProjectAccess = {
+    galleryPasswordHash: null,
+    whitelabelEnabled: false,
+    isActive: true,
+  };
+  if (!isProjectKey(key) || storageEngine() !== "supabase") return fallback;
+  try {
+    const { createServerClient } = await import("./supabase");
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from("event_settings")
+      .select(ACCESS_COLUMNS)
+      .eq("event_key", key)
+      .maybeSingle();
+    if (error) {
+      // Миграция 018 ещё не применена — не роняем публичную страницу.
+      if (!missingAccessTable(error)) {
+        console.error("[eventSettingsStore] readProjectAccess failed:", error.message);
+      }
+      return fallback;
+    }
+    if (!data) return fallback;
+    return {
+      galleryPasswordHash:
+        typeof data.gallery_password_hash === "string" ? data.gallery_password_hash : null,
+      whitelabelEnabled: data.whitelabel_enabled === true,
+      isActive: data.is_active !== false,
+    };
+  } catch (err) {
+    console.error("[eventSettingsStore] readProjectAccess failed:", err);
+    return fallback;
+  }
+}
+
+/**
+ * Записывает security-поля проекта (частичный patch). Используется админкой:
+ * установка/снятие пароля галереи, whitelabel (только super_admin),
+ * активация/деактивация проекта. Файловое хранилище — ошибка: эти поля
+ * существуют только в БД.
+ */
+export async function writeProjectAccess(
+  key: string,
+  patch: Partial<Pick<ProjectAccess, "galleryPasswordHash" | "whitelabelEnabled" | "isActive">>,
+): Promise<void> {
+  assertKey(key);
+  if (storageEngine() !== "supabase") {
+    throw new StorageUnavailableError(
+      "Пароль галереи и whitelabel доступны только при подключённом Supabase.",
+    );
+  }
+  const { createServerClient } = await import("./supabase");
+  const supabase = createServerClient();
+  const row: Record<string, unknown> = {};
+  if ("galleryPasswordHash" in patch) row.gallery_password_hash = patch.galleryPasswordHash;
+  if ("whitelabelEnabled" in patch) row.whitelabel_enabled = patch.whitelabelEnabled;
+  if ("isActive" in patch) row.is_active = patch.isActive;
+  if (Object.keys(row).length === 0) return;
+  const { error } = await supabase
+    .from("event_settings")
+    .update(row)
+    .eq("event_key", key);
+  if (error) {
+    if (missingAccessTable(error)) {
+      throw new StorageUnavailableError(
+        "В базе данных нет колонок доступа. Примените миграцию supabase/migrations/018.",
+      );
+    }
+    throw new StorageUnavailableError(`Не удалось сохранить настройки доступа: ${error.message}`);
+  }
+}
+
 /* ───────────────────────────── Файлы ───────────────────────────── */
 
 function mapFileError(err: unknown, action: string): never {

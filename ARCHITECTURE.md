@@ -171,6 +171,18 @@ A photo that appears in all three result sets gets the highest combined score. A
 
 **Why this matters for face matching too:** The hybrid search covers text-based retrieval, but face matching is a separate operation (§3.3). The real power is combining them: an attendee uploads a selfie *and* types "duck robot" — the face match finds photos of that person, and the text search finds photos of the duck robot. The UI can present both result sets, letting the attendee find "photos of me near our project" through a combination of modalities that no single search approach could handle.
 
+### 3.7 Multi-Project Model, Roles, and Private Analytics
+
+**Decision:** Host multiple events (projects) in one deployment. A project is a row in `event_settings` keyed by `event_key` (the public URL is `/p/<key>`). Admin accounts are real email/password users with roles (`super_admin`, `admin`) and per-project licenses. Gallery passwords and branding live in the DB, not in `NEXT_PUBLIC_*` env vars. Visitor analytics are aggregated server-side and never store PII or raw events in the browser.
+
+**Why the project key is `event_key`, not a separate `projects` table:** The `event_settings` table already existed (013/014) as the per-event store with draft/published settings. Rather than introduce a second table and a foreign-key dance, migration 018 extends `event_settings` with the access columns (`gallery_password_hash`, `whitelabel_enabled`, `is_active`) and treats it as the projects table. Photo and face rows reference `event_settings(event_key)` with `ON DELETE CASCADE`, so deleting a project tears down its data.
+
+**Why roles are re-read from the DB on every request:** The signed JWT session proves *identity* (who you are), but it is deliberately not trusted for *authorization*. On every `/api/admin/*` request the server re-reads the user's `role`, `is_active`, and license status from the DB. This means suspending an admin or expiring a license takes effect immediately, without waiting for a token to expire. For an `admin`, the project scope is always resolved from `admin_project_access` (there is exactly one row, enforced by a unique constraint) — never from a `project_id`/`project_key` in the request, so a forged parameter cannot reach another project.
+
+**Why the gallery password is a separate visitor mechanism:** Attendees are anonymous; there are no accounts. A per-project password (argon2id in `event_settings.gallery_password_hash`) gates `/p/<key>` server-side. Success sets a signed guest cookie (`el_gallery_access`, HS256) listing the unlocked project keys — the older `auth=true` boolean cookie was forgeable from devtools and is gone. `APP_PASSWORD` remains only as a fallback for the legacy single-project `default`.
+
+**Why analytics are aggregated in the database:** Because the photos are of identifiable people, the analytics design starts from privacy. `analytics_events` stores a random rotating `session_id` and event metadata only — no selfies, no face vectors, no raw IPs (IPs are hashed, and only for login rate limiting), and never the full search query text (only its length). Events are written server-side, fire-and-forget, so an analytics hiccup can't break a request. The browser only ever sees aggregates produced by SQL functions (`analytics_summary`, `analytics_timeseries`, `analytics_hourly`, `analytics_top_photos`, `analytics_by_project`), and `analytics_by_project` (the cross-project rollup) is reachable only by `super_admin`.
+
 ## 4. Data Model
 
 ### 4.1 Core Schema
@@ -247,11 +259,13 @@ The face embeddings HNSW index is **partial** — it excludes rows where `embedd
 | `find_similar_sessions(vector(512), threshold, limit)` | Face embedding | Find previous match sessions with similar faces (smart retry) |
 | `get_cooccurrence_recommendations(photo_ids[], exclude[], limit)` | Matched photo IDs | "You might also appear in" — photos that co-occur in match results |
 
-All search-facing RPCs filter `WHERE hidden IS NOT TRUE` to exclude soft-deleted photos.
+All search-facing RPCs filter `WHERE hidden IS NOT TRUE` to exclude soft-deleted photos. The three search RPCs (`match_faces`, `search_photos`, `search_photos_semantic`) also take a `project_key` and filter `WHERE project_key = <key>` (or apply the legacy env fallback only for `default`), so one project can never surface another's photos.
+
+Analytics RPCs (migration 019) — `analytics_summary`, `analytics_timeseries`, `analytics_hourly`, `analytics_top_photos`, `analytics_by_project` — aggregate `analytics_events` on the database side. Passing `p_project_key = NULL` aggregates across all projects (super admin only); an `admin` is always scoped to its licensed project in the API layer.
 
 ### 4.4 Migration Progression
 
-The 12 migrations tell the story of iterative feature development, not a pre-planned schema:
+The 19 migrations tell the story of iterative feature development, not a pre-planned schema:
 
 | # | Migration | What it adds | What prompted it |
 |---|-----------|-------------|------------------|
@@ -267,10 +281,15 @@ The 12 migrations tell the story of iterative feature development, not a pre-pla
 | 010 | `phash_dedup` | phash column, hidden soft-delete, duplicate clustering RPC | Multiple photographers shooting the same scene created near-duplicates; organizers needed moderation tools |
 | 011 | `auto_tags` | auto_tag column + index | Thematic album grouping ("Stage & Keynotes", "Networking") for gallery browsing |
 | 012 | `allow_null_face_embedding` | DROP NOT NULL on face_embeddings.embedding | Completed the sentinel pattern — allowed NULL embedding for the face_index=-1 marker rows |
+| 013–014 | `event_settings` | Per-event page settings + branding (draft/published), file fallback | Multi-event support — one deployment now hosts several galleries |
+| 015 | `project_key` backfill | Existing rows scoped to a project | Migrated single-project data into the multi-project model |
+| 016–017 | `mime_type`, composite FKs | MIME column + (event_key, drive_file_id) integrity | Hardened photo↔event joins as projects diverged |
+| 018 | `auth_roles_licenses` | `admin_users`, `admin_project_access`, `login_attempts`, `admin_invites`, gallery-password/whitelabel/active columns on `event_settings`, `has_project_access()` | Real admin accounts with roles and per-project licenses, plus login rate limiting and per-project gallery passwords |
+| 019 | `analytics` | `analytics_events` + `analytics_summary/timeseries/hourly/top_photos/by_project` | Privacy-first visitor analytics, aggregated server-side (no raw events leave the DB) |
 
 **What this progression demonstrates:** The schema evolved with the product. Search started as text-only (002), added semantic vectors (003), then face vectors were accelerated with HNSW (006). Data integrity was tightened retroactively (005, 008) as pipeline re-runs exposed edge cases. The sentinel pattern (009, 012) was iterated and refined during testing. Each migration solves a specific problem encountered during development — not a theoretical schema design exercise.
 
-**Developer experience:** For new deployments, `supabase/schema.sql` consolidates all 12 migrations into a single file — one paste into the Supabase SQL Editor creates the full schema. The individual migrations remain for incremental updates on existing databases. A setup script (`scripts/setup.sh`) automates dependency installation, `.env` creation, and prerequisite validation.
+**Developer experience:** For new deployments, `supabase/schema.sql` consolidates all 19 migrations into a single file — one paste into the Supabase SQL Editor creates the full schema. The individual migrations remain for incremental updates on existing databases. A setup script (`scripts/setup.sh`) automates dependency installation, `.env` creation, and prerequisite validation.
 
 ## 5. Pipeline Design
 

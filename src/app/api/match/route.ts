@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PhotoRecord, MatchResult } from "@/lib/types";
 import { coerceProjectKey } from "@/lib/eventSettings";
 import { saveMatchSession, findSimilarSessions, getCooccurrenceRecommendations } from "@/lib/supabase";
+import { trackEvent } from "@/lib/analytics";
 
 export const maxDuration = 60;
 
@@ -22,6 +23,7 @@ const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif", "ima
 const MAX_BASE64_SIZE = 10 * 1024 * 1024;
 
 function vectorResponse(
+  request: NextRequest,
   matches: MatchResult[],
   embedding: number[] | null,
   extra?: { error?: string; recommendations?: string[] },
@@ -34,6 +36,13 @@ function vectorResponse(
     queryEmbedding: embedding,
     matchedPhotoIds: matches.map((m) => m.photo.driveFileId),
     projectKey,
+  });
+  // Аналитика (приватно): сам selfie/вектор НЕ сохраняются — только факт
+  // поиска по лицу, число совпадений и уровень.
+  trackEvent(request, {
+    projectKey: projectKey ?? "default",
+    eventType: "search_face",
+    metadata: { results_count: matches.length, match_tier: "vector" },
   });
   return NextResponse.json({
     matches,
@@ -97,7 +106,7 @@ export async function POST(request: NextRequest) {
     // Проект: галерея передаёт свой ключ (/p/<key>) — от него зависит,
     // из какого источника резолвить совпавшие фото.
     const project = coerceProjectKey(request.nextUrl.searchParams.get("project"));
-    return vectorMatch(imageBase64, project ?? undefined);
+    return vectorMatch(request, imageBase64, project ?? undefined);
   } catch {
     return NextResponse.json({ error: "Failed to process photo match" }, { status: 500 });
   }
@@ -135,7 +144,7 @@ async function resolveMatchedPhotos(
   return map;
 }
 
-async function vectorMatch(imageBase64: string, project?: string) {
+async function vectorMatch(request: NextRequest, imageBase64: string, project?: string) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (FACE_API_SECRET) headers["Authorization"] = `Bearer ${FACE_API_SECRET}`;
 
@@ -184,7 +193,7 @@ async function vectorMatch(imageBase64: string, project?: string) {
   } = await embedRes.json();
 
   if (embedData.count === 0) {
-    return vectorResponse([], null, { error: "No face detected in the uploaded photo. Please upload a clear photo of a person." }, project);
+    return vectorResponse(request, [], null, { error: "No face detected in the uploaded photo. Please upload a clear photo of a person." }, project);
   }
 
   const bestFace = embedData.faces.reduce((a, b) => (a.det_score > b.det_score ? a : b));
@@ -202,11 +211,11 @@ async function vectorMatch(imageBase64: string, project?: string) {
   if (faceMatches.length === 0) {
     const similar = await findSimilarSessions(bestFace.embedding, 0.7, 1);
     if (similar.length > 0 && similar[0].match_count > 0) {
-      return vectorResponse([], bestFace.embedding, {
+      return vectorResponse(request, [], bestFace.embedding, {
         error: "We've seen a similar face before but couldn't match this time. Try a clearer, well-lit photo.",
       }, project);
     }
-    return vectorResponse([], bestFace.embedding, undefined, project);
+    return vectorResponse(request, [], bestFace.embedding, undefined, project);
   }
 
   const bestByPhoto = new Map<string, { similarity: number; face_index: number }>();
@@ -247,7 +256,7 @@ async function vectorMatch(imageBase64: string, project?: string) {
       `total=${Date.now() - tEmbed0}ms matches=${matches.length}`,
   );
 
-  return vectorResponse(matches, bestFace.embedding, {
+  return vectorResponse(request, matches, bestFace.embedding, {
     recommendations: recommendations.length > 0 ? recommendations : undefined,
   }, project);
 }

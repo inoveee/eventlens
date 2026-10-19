@@ -15,6 +15,8 @@ import { useCollage } from "@/hooks/useCollage";
 import { useStats } from "@/hooks/useStats";
 import { useProgressiveRender } from "@/hooks/useProgressiveRender";
 import { useUrlSync } from "@/hooks/useUrlSync";
+import { usePageView } from "@/hooks/usePageView";
+import { useProjectKey } from "@/hooks/useProjectKey";
 
 // Components
 import GalleryHeader from "./GalleryHeader";
@@ -58,6 +60,9 @@ export default function PhotoGallery() {
     photos.setToast,
   );
   const stats = useStats();
+
+  // Однократный beacon «посетитель открыл галерею» (аналитика, fire-and-forget).
+  usePageView(useProjectKey());
 
   const resetKey = `${filters.activeFolder}|${filters.activeTag}|${search.debouncedQuery}|${filters.sortOrder}`;
   const { visibleCount, sentinelRef } = useProgressiveRender(

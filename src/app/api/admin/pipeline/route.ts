@@ -4,7 +4,7 @@
 // подключённой папки проекта, а не из глобального PHOTO_SOURCE.
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/adminAuth";
 import { coerceProjectKey } from "@/lib/eventSettings";
 import { resolvePhotoSource } from "@/lib/eventSettingsStore";
 import { driveSource, yandexSource, type PipelineSource } from "@/lib/pipeline/source";
@@ -155,16 +155,22 @@ async function runPhase(
 }
 
 export async function POST(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   let body: { phase?: string; retryErrors?: boolean; project?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+
+  const project =
+    coerceProjectKey(body.project) ??
+    coerceProjectKey(request.nextUrl.searchParams.get("project")) ??
+    "default";
+
+  // Проект из запроса — только ограничение; для admin фактический проект
+  // берётся из его лицензии в requireProjectAccess (чужой ключ не сработает).
+  const auth = await requireAdminAccess(request, project);
+  if (!auth.ok) return auth.response;
 
   const phase = body.phase as Phase;
   if (!phase || !VALID_PHASES.includes(phase)) {
@@ -174,13 +180,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const project =
-    coerceProjectKey(body.project) ??
-    coerceProjectKey(request.nextUrl.searchParams.get("project")) ??
-    "default";
+  const activeProject = auth.ctx.projectKey ?? "default";
 
   try {
-    const result = await runPhase(phase, project, body.retryErrors);
+    const result = await runPhase(phase, activeProject, body.retryErrors);
     return NextResponse.json({
       success: true,
       ...result,

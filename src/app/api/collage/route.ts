@@ -6,6 +6,7 @@ import { pickHeroImage } from "@/lib/gemini";
 import { fetchYandexDownloadHref } from "@/lib/yandex-disk";
 import { coerceProjectKey } from "@/lib/eventSettings";
 import { resolvePhotoSource } from "@/lib/eventSettingsStore";
+import { trackEvent } from "@/lib/analytics";
 
 export const maxDuration = 60;
 
@@ -377,6 +378,13 @@ export async function POST(request: NextRequest) {
 
     const ext = format === "png" ? "png" : "jpg";
     const mimeType = format === "png" ? "image/png" : "image/jpeg";
+
+    // Аналитика (приватно): только число фото в коллаже.
+    trackEvent(request, {
+      projectKey: coerceProjectKey(project) ?? "default",
+      eventType: "collage_create",
+      photoCount: files.length,
+    });
 
     return new NextResponse(new Uint8Array(output), {
       status: 200,

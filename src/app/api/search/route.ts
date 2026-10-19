@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rowToPhoto } from "@/lib/photos";
 import { PhotoRow, searchPhotosSemantic } from "@/lib/supabase";
+import { coerceProjectKey } from "@/lib/eventSettings";
+import { queryLengthMetadata, trackEvent } from "@/lib/analytics";
 
 export const maxDuration = 15;
 
@@ -107,6 +109,20 @@ export async function GET(request: NextRequest) {
     const results = Array.from(byId.values())
       .sort((a, b) => b.score - a.score)
       .map((r) => r.photo);
+
+    // Аналитика (приватно): только длина запроса и число найденных фото.
+    // Проект: из ?project=; без параметра — «default».
+    const projectKey = coerceProjectKey(project) ?? "default";
+    if (projectKey !== null) {
+      trackEvent(request, {
+        projectKey,
+        eventType: semanticResults.length > 0 ? "search_semantic" : "search_text",
+        metadata: {
+          ...queryLengthMetadata(query),
+          results_count: results.length,
+        },
+      });
+    }
 
     return NextResponse.json({
       results,

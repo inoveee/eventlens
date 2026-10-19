@@ -3,11 +3,17 @@ import { config } from "@/lib/config";
 
 /**
  * Gallery footer. White-label: the organizer's optional credit line, the
- * noveee.me platform logo and a privacy note. Set NEXT_PUBLIC_FOOTER_CREDIT_URL /
- * NEXT_PUBLIC_FOOTER_CREDIT_TEXT to link back to whoever runs the instance,
- * or leave them empty to hide the line entirely.
+ * noveee.me platform logo and a privacy note.
+ *
+ * whitelabel (из event_settings.whitelabel_enabled, переключает super_admin):
+ *   true  — показываем только credit организатора, платформенный блок
+ *           noveee.me скрыт (галерея выглядит как самостоятельный сайт);
+ *   false — фирменный брендинг EventLens (noveee.me) рядом с credit.
+ *
+ * Credit-строка настраивается NEXT_PUBLIC_FOOTER_CREDIT_URL /
+ * NEXT_PUBLIC_FOOTER_CREDIT_TEXT; пусто — строка не показывается.
  */
-export default function Footer() {
+export default function Footer({ whitelabel = false }: { whitelabel?: boolean }) {
   const creditText = process.env.NEXT_PUBLIC_FOOTER_CREDIT_TEXT || "";
   const creditUrl = process.env.NEXT_PUBLIC_FOOTER_CREDIT_URL || "";
 
@@ -34,21 +40,25 @@ export default function Footer() {
         )}
 
         {/* noveee.me — платформа; логотип со светлым текстом,
-            поэтому на тёмной «табличке», читаемой в обеих темах */}
-        <a
-          href="https://noveee.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="noveee.me"
-          className="inline-flex items-center rounded-full bg-black px-4 py-2 transition-opacity hover:opacity-85"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/noveee-logo.png"
-            alt="noveee.me"
-            className="h-auto w-36 md:w-40"
-          />
-        </a>
+            поэтому на тёмной «табличке», читаемой в обеих темах.
+            В whitelabel-режиме платформа скрыта — галерея выглядит
+            как самостоятельный сайт организатора. */}
+        {!whitelabel && (
+          <a
+            href="https://noveee.me"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="noveee.me"
+            className="inline-flex items-center rounded-full bg-black px-4 py-2 transition-opacity hover:opacity-85"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/noveee-logo.png"
+              alt="noveee.me"
+              className="h-auto w-36 md:w-40"
+            />
+          </a>
+        )}
 
         <div className="group/pii relative flex items-center justify-center">
           <svg

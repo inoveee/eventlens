@@ -5,6 +5,7 @@ import { config } from "@/lib/config";
 import { fetchYandexDownloadHref } from "@/lib/yandex-disk";
 import { coerceProjectKey } from "@/lib/eventSettings";
 import { resolvePhotoSource } from "@/lib/eventSettingsStore";
+import { trackEvent } from "@/lib/analytics";
 
 export const maxDuration = 60;
 
@@ -118,6 +119,13 @@ export async function POST(request: NextRequest) {
       type: "arraybuffer",
       compression: "DEFLATE",
       compressionOptions: { level: 6 },
+    });
+
+    // Аналитика (приватно): только число скачанных фото, не их id.
+    trackEvent(request, {
+      projectKey: coerceProjectKey(project) ?? "default",
+      eventType: "download_zip",
+      photoCount: entryCount,
     });
 
     return new NextResponse(zipArrayBuffer, {

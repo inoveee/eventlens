@@ -28,6 +28,12 @@ EventLens turns a Google Drive folder of event photos into a fully interactive g
 ### Organizer Features
 
 - **Admin dashboard** (`/admin`) — Pipeline status, folder breakdown, error logs, duplicate detection, and content moderation (hide photos).
+- **Admin accounts & roles** — Email/password login (argon2id, signed session cookie) at `/admin/login`. Two roles:
+  - **super_admin** — sees and manages all projects, admins, licenses, whitelabel, and per-project analytics.
+  - **admin** — bound to exactly one project (enforced at the DB); sees only that project, never others'.
+- **Multi-project** — Each event is a project (`event_settings`): its own gallery page `/p/<key>`, folder, branding, and gallery password. RPCs (`match_faces`, `search_photos`, `search_photos_semantic`) are project-scoped, so one project can never read another's photos.
+- **Per-project gallery password & whitelabel** — Password (argon2id) and the whitelabel flag are stored in the DB and set from the admin panel (`/api/admin/project-security`). `APP_PASSWORD`/`NEXT_PUBLIC_*` are only defaults.
+- **Analytics** (`/admin/analytics`) — Privacy-first visitor stats: page views, unique visitors, searches, face searches, downloads, collages. Aggregated via SQL functions; no selfies, face vectors, raw IPs, or full query text are stored. KPI cards, charts, sortable all-projects table, CSV export.
 - **Processing pipeline** — Six-phase AI pipeline running as native TypeScript on Vercel serverless:
   - **Sync** — Reconcile Drive ↔ Supabase (detect renames, moves, deletions)
   - **Scan** — Discover new photos from Drive folders
@@ -163,10 +169,14 @@ Fill in the values:
 | `GOOGLE_API_KEY` | Yes | Google Cloud API key with Drive API enabled |
 | `GOOGLE_DRIVE_FOLDER_ID` | Yes | Root Drive folder ID (from the folder URL) |
 | `GEMINI_API_KEY` | Yes | Gemini API key for vision analysis and embeddings |
-| `APP_PASSWORD` | Yes | Password attendees enter to access the gallery |
+| `APP_PASSWORD` | No | **Default** gallery password for the legacy `default` project only (per-project passwords are set in the admin panel and stored in the DB) |
+| `SESSION_SECRET` | Yes (prod) | Secret (HS256) signing admin sessions + gallery guest cookie. Generate: `openssl rand -base64 48` |
+| `SUPER_ADMIN_EMAIL` | No | Email of the first super admin, created via `npm run create-super-admin` |
+| `SUPER_ADMIN_PASSWORD` | No | Password for the first super admin (prompted interactively if empty) |
+| `IP_HASH_SALT` | No | Salt for hashing IPs in `login_attempts` (login rate limiting) |
+| `ADMIN_API_SECRET` | No | Deprecated for UI. Still used as a Bearer token by scripts/CI and as a fallback for `SESSION_SECRET` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-side only) |
-| `ADMIN_API_SECRET` | Yes | Bearer token for admin API endpoints |
 | `FACE_API_URL` | No | URL of deployed InsightFace microservice |
 | `FACE_API_SECRET` | No | Bearer token for face-api authentication |
 | `NEXT_PUBLIC_EVENT_NAME` | No | Event title displayed in the gallery header (default: `Фотогалерея`) |
@@ -379,19 +389,29 @@ supabase/
 
 ## API Reference
 
-All endpoints except auth require the gallery password cookie. Admin endpoints require `Authorization: Bearer <ADMIN_API_SECRET>`.
+Authentication model:
+
+- **Public routes** (`/api/photos`, `/api/search`, `/api/match`, …) — no auth; scoped by `project`/`project_key` so one project can never read another's data.
+- **Gallery password** — per-project, set in the admin panel (`event_settings.gallery_password_hash`, argon2id). `/api/auth/login` verifies it and sets a signed guest cookie (`el_gallery_access`) listing the unlocked projects. `APP_PASSWORD` is only the fallback for the legacy `default` project.
+- **Admin routes** (`/api/admin/*`) — session cookie set by `/api/admin/auth/login` (argon2id + short-lived signed JWT, `/admin/login` UI). `Authorization: Bearer <ADMIN_API_SECRET>` is still accepted for scripts/CI and is treated as `super_admin`. Role, active flag, and license are re-read from the DB on every request; an `admin` always gets its one licensed project from `admin_project_access`, never from the request.
 
 | Endpoint | Method | Description |
 |---|---|---|
 | `/api/photos` | GET | Photo list with `limit`/`offset` pagination |
-| `/api/search?q=` | GET | Hybrid semantic + full-text search |
-| `/api/match` | POST | Face matching (accepts base64 selfie) |
-| `/api/stats` | GET | Gallery analytics, recent activity, hot photos |
+| `/api/search?q=` | GET | Hybrid semantic + full-text search (logs a `search_*` analytics event) |
+| `/api/match` | POST | Face matching (accepts base64 selfie; logs `search_face`) |
+| `/api/stats` | GET | Gallery analytics, recent activity, hot photos (scoped by `project_key`) |
 | `/api/video?id=` | GET | Drive video streaming proxy with range support |
-| `/api/download-zip` | POST | Batch ZIP download (up to 50 photos) |
-| `/api/collage` | POST | Generate photo collage with configurable ratio |
-| `/api/auth/login` | POST | Password login, sets auth cookie |
-| `/api/auth/logout` | POST | Clears auth cookie |
+| `/api/download-zip` | POST | Batch ZIP download (up to 50 photos; logs `download_zip`) |
+| `/api/collage` | POST | Generate photo collage with configurable ratio (logs `collage_create`) |
+| `/api/analytics` | POST | Anonymous `page_view` beacon; sets the analytics session cookie |
+| `/api/auth/login` | POST | Visitor gallery password login (per-project), sets guest cookie |
+| `/api/auth/logout` | POST | Clears the guest cookie |
+| `/api/admin/auth/login` | POST | Admin login → session cookie (rate-limited by IP) |
+| `/api/admin/auth/logout` | POST | Clears the admin session cookie |
+| `/api/admin/auth/me` | GET | Current session: email, role, project, license status |
+| `/api/admin/analytics` | GET | Aggregated KPI, time series, top photos (role-scoped) |
+| `/api/admin/project-security` | GET/POST | Gallery password + whitelabel/active toggles |
 | `/api/admin/pipeline` | POST | Run pipeline phase (`sync`, `scan`, `describe`, `embeddings`, `face-embed`, `phash`, `full`) |
 | `/api/admin/status` | GET | Pipeline status + folder breakdown |
 | `/api/admin/scan` | POST | Quick Drive folder scan |
@@ -403,7 +423,7 @@ All endpoints except auth require the gallery password cookie. Admin endpoints r
 
 ## Tests and CI
 
-52 tests covering the embedding pipeline — the most complex and externally-dependent part of the codebase. Tests are co-located with source files (`gemini-client.ts` → `gemini-client.test.ts`).
+153 tests covering the embedding pipeline, auth/roles, gallery guest access, and analytics privacy — the most complex and externally-dependent parts of the codebase. Tests are co-located with source files (`gemini-client.ts` → `gemini-client.test.ts`).
 
 ```bash
 # Run tests
