@@ -13,13 +13,16 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
   EventSettings,
+  applyStyleTokens,
   brandingTokens,
   defaultEventSettings,
 } from "@/lib/eventSettings";
@@ -102,20 +105,28 @@ export default function EventSettingsProvider({
   const [preview, setPreview] = useState(false);
   const [loaded, setLoaded] = useState(initialSettings !== null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const wantPreview =
+  /** true — открыта ссылка «/p/<key>?preview=1» (черновик из localStorage). */
+  const wantsPreview = useCallback(
+    () =>
       typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("preview") === "1";
-    if (wantPreview) {
-      const entry = readPreview(projectKey);
-      if (entry) {
-        setPreviewSettings(entry);
-        setPreview(true);
-      }
-    }
+      new URLSearchParams(window.location.search).get("preview") === "1",
+    [],
+  );
 
+  const loadPreview = useCallback(() => {
+    if (!wantsPreview()) return;
+    const entry = readPreview(projectKey);
+    if (entry) {
+      setPreviewSettings(entry);
+      setPreview(true);
+    }
+  }, [projectKey, wantsPreview]);
+
+  /**
+   * Читает опубликованные настройки. Один повтор: однократный сбой сети
+   * или сервера не оставляет страницу без брендинга организатора.
+   */
+  const fetchPublished = useCallback(async (): Promise<EventSettings | null> => {
     const attempt = () =>
       fetch(`/api/event/settings?project=${encodeURIComponent(projectKey)}`, {
         cache: "no-store",
@@ -126,28 +137,44 @@ export default function EventSettingsProvider({
         .then((res) => (res.ok ? res.json() : null))
         .catch(() => null);
 
-    // Один повтор: однократный сбой сети или сервера не оставляет
-    // страницу без опубликованных настроек.
-    attempt()
-      .then(
-        (data) =>
-          data ??
-          new Promise((r) => setTimeout(r, 1500)).then(() => attempt()),
-      )
-      .then((data) => {
-        if (!cancelled && data && data.published) {
-          setPublished(data.published as EventSettings);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
+    const data = (await attempt()) ?? (await new Promise((r) => setTimeout(r, 1500)).then(attempt));
+    return (data?.published as EventSettings | undefined) ?? null;
+  }, [projectKey]);
 
+  // Первая загрузка и смена проекта.
+  useEffect(() => {
+    let cancelled = false;
+    loadPreview();
+    void fetchPublished().then((settings) => {
+      if (cancelled) return;
+      if (settings) setPublished(settings);
+      setLoaded(true);
+    });
     return () => {
       cancelled = true;
     };
-  }, [projectKey]);
+  }, [fetchPublished, loadPreview]);
+
+  // Вкладка проснулась (её вернули на передний план) — перечитываем
+  // опубликованное. Так организатор видит новый фон сразу после публикации,
+  // даже если страница была открыта до неё: window.open по тому же адресу
+  // не перезагружает вкладку, и без этого обновления фон казался «старым».
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onWake = () => {
+      if (document.visibilityState !== "visible") return;
+      loadPreview();
+      void fetchPublished().then((settings) => {
+        if (settings) setPublished(settings);
+      });
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    return () => {
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+    };
+  }, [fetchPublished, loadPreview]);
 
   const value = useMemo<EventSettingsContextValue>(() => {
     const settings = previewSettings ?? published ?? defaultEventSettings();
@@ -155,18 +182,26 @@ export default function EventSettingsProvider({
   }, [previewSettings, published, preview, loaded]);
 
   // Применяем оформление: акцент, фон hero, читаемость текста.
+  // applyStyleTokens снимает переменные, которых больше нет в наборе
+  // (например --el-hero-bg после возврата фона к «Стандарту») — иначе
+  // старое инлайн-значение на :root переживало смену настроек.
+  const appliedTokensRef = useRef<string[]>([]);
   useEffect(() => {
     if (!loaded) return;
     const tokens = brandingTokens(value.settings.branding);
-    const root = document.documentElement;
-    for (const [name, cssValue] of Object.entries(tokens)) {
-      root.style.setProperty(name, cssValue);
-    }
+    appliedTokensRef.current = applyStyleTokens(
+      document.documentElement.style,
+      tokens,
+      appliedTokensRef.current,
+    );
   }, [loaded, value.settings]);
 
   // Те же переменные — в SSR-теге <style>: он попадает в HTML и действует
   // с первого кадра, до hydration (иначе первый экран рисуется в базовых
   // цветах проекта и через мгновение перекрашивается брендингом).
+  // key по содержимому: тег пересоздаётся вместе с набором токенов, поэтому
+  // в нём не остаётся фона предыдущего проекта при переходе между
+  // страницами в одной вкладке.
   const tokenCss = useMemo(() => {
     const decls = Object.entries(brandingTokens(value.settings.branding))
       .map(([name, cssValue]) => `${name}:${cssValue}`)
@@ -177,6 +212,7 @@ export default function EventSettingsProvider({
   return (
     <EventSettingsContext.Provider value={value}>
       <style
+        key={tokenCss}
         href="el-branding-tokens"
         precedence="high"
         dangerouslySetInnerHTML={{ __html: tokenCss }}

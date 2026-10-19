@@ -258,6 +258,7 @@ The face embeddings HNSW index is **partial** — it excludes rows where `embedd
 | `get_unique_operatives_count()` | — | Count of distinct face searches |
 | `find_similar_sessions(vector(512), threshold, limit)` | Face embedding | Find previous match sessions with similar faces (smart retry) |
 | `get_cooccurrence_recommendations(photo_ids[], exclude[], limit)` | Matched photo IDs | "You might also appear in" — photos that co-occur in match results |
+| `admin_photo_status(project_key)` | Project key, or NULL for all projects | One jsonb payload for the admin dashboard: pipeline status counts, embedding counts, folder breakdown, last processed timestamp, recent errors |
 
 All search-facing RPCs filter `WHERE hidden IS NOT TRUE` to exclude soft-deleted photos. The three search RPCs (`match_faces`, `search_photos`, `search_photos_semantic`) also take a `project_key` and filter `WHERE project_key = <key>` (or apply the legacy env fallback only for `default`), so one project can never surface another's photos.
 
@@ -265,7 +266,7 @@ Analytics RPCs (migration 019) — `analytics_summary`, `analytics_timeseries`, 
 
 ### 4.4 Migration Progression
 
-The 19 migrations tell the story of iterative feature development, not a pre-planned schema:
+The 20 migrations tell the story of iterative feature development, not a pre-planned schema:
 
 | # | Migration | What it adds | What prompted it |
 |---|-----------|-------------|------------------|
@@ -286,10 +287,11 @@ The 19 migrations tell the story of iterative feature development, not a pre-pla
 | 016–017 | `mime_type`, composite FKs | MIME column + (event_key, drive_file_id) integrity | Hardened photo↔event joins as projects diverged |
 | 018 | `auth_roles_licenses` | `admin_users`, `admin_project_access`, `login_attempts`, `admin_invites`, gallery-password/whitelabel/active columns on `event_settings`, `has_project_access()` | Real admin accounts with roles and per-project licenses, plus login rate limiting and per-project gallery passwords |
 | 019 | `analytics` | `analytics_events` + `analytics_summary/timeseries/hourly/top_photos/by_project` | Privacy-first visitor analytics, aggregated server-side (no raw events leave the DB) |
+| 020 | `admin_status` | `idx_photos_project_status` + `admin_photo_status()` jsonb aggregate | The admin dashboard polled 6 count queries + full-table dumps of `photos`/`face_embeddings` every 5s — the aggregate is one call, scoped by project |
 
 **What this progression demonstrates:** The schema evolved with the product. Search started as text-only (002), added semantic vectors (003), then face vectors were accelerated with HNSW (006). Data integrity was tightened retroactively (005, 008) as pipeline re-runs exposed edge cases. The sentinel pattern (009, 012) was iterated and refined during testing. Each migration solves a specific problem encountered during development — not a theoretical schema design exercise.
 
-**Developer experience:** For new deployments, `supabase/schema.sql` consolidates all 19 migrations into a single file — one paste into the Supabase SQL Editor creates the full schema. The individual migrations remain for incremental updates on existing databases. A setup script (`scripts/setup.sh`) automates dependency installation, `.env` creation, and prerequisite validation.
+**Developer experience:** For new deployments, `supabase/schema.sql` consolidates all 20 migrations into a single file — one paste into the Supabase SQL Editor creates the full schema. The individual migrations remain for incremental updates on existing databases. A setup script (`scripts/setup.sh`) automates dependency installation, `.env` creation, and prerequisite validation.
 
 ## 5. Pipeline Design
 

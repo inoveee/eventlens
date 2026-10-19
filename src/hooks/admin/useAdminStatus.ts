@@ -1,7 +1,13 @@
 // @TheTechMargin 2026
 // Pipeline status polling — fetches status on interval, handles auth expiry.
+//
+// Две важные детали производительности:
+//   1. Первый запрос уходит сразу при входе, а не через 5с — панель
+//      раньше показывала пустой экран до первого тика интервала.
+//   2. Колбэки держим в ref (идентичность fetchStatus стабильна): иначе
+//      каждый рендер пересоздавал интервал и сбрасывал его таймер.
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { StatusData } from "@/app/admin/types";
 
 interface UseAdminStatusOptions {
@@ -19,12 +25,28 @@ export function useAdminStatus({
 }: UseAdminStatusOptions) {
   const [status, setStatus] = useState<StatusData | null>(null);
 
+  const setAuthRef = useRef(setAuthenticated);
+  const addLogRef = useRef(addLog);
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    setAuthRef.current = setAuthenticated;
+  }, [setAuthenticated]);
+  useEffect(() => {
+    addLogRef.current = addLog;
+  }, [addLog]);
+
   const fetchStatus = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       const res = await fetch("/api/admin/status", { headers: headers() });
       if (!res.ok) {
+        // 401 — сессия мертва, уводим на логин. Прочие ошибки (сеть,
+        // 5xx) НЕ разлогинивают: иначе моргнувшая сеть выбрасывала
+        // организатора со страницы.
         if (res.status === 401) {
-          setAuthenticated(false);
+          setAuthRef.current(false);
           return;
         }
         throw new Error(`Status fetch failed: ${res.status}`);
@@ -33,20 +55,23 @@ export function useAdminStatus({
       if (contentType && contentType.includes("application/json")) {
         const data: StatusData = await res.json();
         setStatus(data);
-        setAuthenticated(true);
       } else {
         throw new Error("Unexpected response format");
       }
     } catch (error) {
-      addLog(`Status error: ${error instanceof Error ? error.message : "Unknown"}`);
-      setAuthenticated(false);
+      addLogRef.current(
+        `Status error: ${error instanceof Error ? error.message : "Unknown"}`,
+      );
+    } finally {
+      inFlightRef.current = false;
     }
-  }, [headers, addLog, setAuthenticated]);
+  }, [headers]);
 
-  // Poll every 5s while authenticated
+  // Первый запрос сразу + опрос каждые 5с, пока есть сессия.
   useEffect(() => {
     if (!authenticated) return;
-    const interval = setInterval(fetchStatus, 5000);
+    void fetchStatus();
+    const interval = setInterval(() => void fetchStatus(), 5000);
     return () => clearInterval(interval);
   }, [authenticated, fetchStatus]);
 

@@ -451,6 +451,44 @@ export function heroTokens(hero: HeroSettings): HeroTokens {
 
 export type StyleTokens = Record<string, string>;
 
+/** Цель применения токенов: подходит CSSStyleDeclaration и её тест-дубль. */
+export interface StyleTokenTarget {
+  setProperty(name: string, value: string): void;
+  removeProperty(name: string): void;
+}
+
+/**
+ * Применяет токены оформления и убирает те, что пропали из набора.
+ *
+ * Без удаления «лишних» переменных смена фона на «Стандарт» не срабатывала:
+ * heroTokens перестаёт возвращать --el-hero-bg, но инлайн-значение на
+ * :root остаётся с прошлого применения — фон не менялся, пока страница
+ * не перезагрузится целиком (переход между проектами в одной вкладке).
+ *
+ * @param applied имена переменных, выставленных прошлым вызовом
+ * @returns имена переменных, выставленных сейчас (передавайте их в
+ *          следующий вызов — так отслеживаются «пропавшие»)
+ */
+export function applyStyleTokens<T extends object>(
+  target: StyleTokenTarget,
+  tokens: T,
+  applied: Iterable<string> = [],
+): string[] {
+  const names: string[] = [];
+  for (const [name, value] of Object.entries(tokens) as Array<[string, string | undefined]>) {
+    // heroTokens() не отдаёт ключ вовсе, когда фон стандартный; значение
+    // undefined означало бы «снять переменную» — пропускаем.
+    if (value === undefined) continue;
+    target.setProperty(name, value);
+    names.push(name);
+  }
+  const next = new Set(names);
+  for (const name of applied) {
+    if (!next.has(name)) target.removeProperty(name);
+  }
+  return names;
+}
+
 /** Токены акцентного цвета: кнопки, ссылки, активные состояния. */
 export function accentTokens(accent: string): StyleTokens {
   const color = normalizeHex(accent) ?? "#fd8d2c";

@@ -8,7 +8,7 @@
 // сессии; здесь клиентский фолбэк на случай истечения посреди работы.
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/hooks/admin/useAdminAuth";
 import { useAdminStatus } from "@/hooks/admin/useAdminStatus";
@@ -32,8 +32,17 @@ export default function AdminPage() {
   const auth = useAdminAuth();
   const { user, license, authenticated, checking, logout } = auth;
 
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
   // Сессия истекла посреди работы → на логин (middleware сделает это и
   // на маршруте, но клиентский редирект убирает лишний рендер).
+  // Стабильная функция: опрос статуса не пересоздаёт интервал на каждом
+  // рендере.
+  const handleAuthLost = useCallback((v: boolean) => {
+    if (!v) routerRef.current.replace("/admin/login");
+  }, []);
+
   useEffect(() => {
     if (!checking && !authenticated) {
       router.replace("/admin/login");
@@ -43,9 +52,7 @@ export default function AdminPage() {
   const { status, fetchStatus } = useAdminStatus({
     headers: auth.headers,
     authenticated,
-    setAuthenticated: (v) => {
-      if (!v) router.replace("/admin/login");
-    },
+    setAuthenticated: handleAuthLost,
     addLog,
   });
   const { loading, runPipeline } = useAdminPipeline({

@@ -6,6 +6,7 @@ import {
   SettingsValidationError,
   TEXT_LIMITS,
   accentTokens,
+  applyStyleTokens,
   defaultEventSettings,
   heroBackgroundValue,
   heroTokens,
@@ -141,6 +142,52 @@ describe("accentTokens", () => {
     expect(accentTokens("#fd8d2c")["--el-on-primary"]).toBe("#000000");
     expect(accentTokens("#0f172a")["--el-on-primary"]).toBe("#ffffff");
     expect(accentTokens("#0f172a")["--el-primary"]).toBe("#0f172a");
+  });
+});
+
+describe("applyStyleTokens", () => {
+  /** Дубль CSSStyleDeclaration: помнит только выставленные значения. */
+  const fakeTarget = () => {
+    const vars = new Map<string, string>();
+    return {
+      vars,
+      setProperty(name: string, value: string) {
+        vars.set(name, value);
+      },
+      removeProperty(name: string) {
+        vars.delete(name);
+      },
+    };
+  };
+
+  test("снимает переменные, которых нет в новом наборе", () => {
+    const target = fakeTarget();
+    const image = heroTokens({
+      ...defaultEventSettings().branding.hero,
+      mode: "image",
+      image: "data:image/png;base64,AAAA",
+    });
+    const applied = applyStyleTokens(target, image);
+    expect(target.vars.get("--el-hero-bg")).toBe('url("data:image/png;base64,AAAA")');
+    expect(target.vars.get("--el-hero-size")).toBe("cover");
+
+    // Возврат фона к «Стандарту»: --el-hero-bg больше не приходит,
+    // но инлайн-значение должно исчезнуть, иначе старый фон остаётся.
+    const standard = heroTokens(defaultEventSettings().branding.hero);
+    const next = applyStyleTokens(target, standard, applied);
+    expect(target.vars.has("--el-hero-bg")).toBe(false);
+    expect(target.vars.has("--el-hero-size")).toBe(false);
+    expect(target.vars.get("--el-hero-text")).toBe("#ffffff");
+    expect(next).not.toContain("--el-hero-bg");
+  });
+
+  test("повторное применение того же набора ничего не снимает", () => {
+    const target = fakeTarget();
+    const tokens = heroTokens(defaultEventSettings().branding.hero);
+    const first = applyStyleTokens(target, tokens);
+    const second = applyStyleTokens(target, tokens, first);
+    expect(new Set(second)).toEqual(new Set(first));
+    expect(target.vars.get("--el-hero-scrim")).toBeDefined();
   });
 });
 

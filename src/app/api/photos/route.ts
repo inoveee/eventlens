@@ -10,8 +10,6 @@ import { coerceProjectKey } from "@/lib/eventSettings";
 export const revalidate = 60;
 
 export async function GET(request: NextRequest) {
-  console.log("[v0] GATE 1: /api/photos request received");
-  console.log("[v0] GATE 2: ENV - email:", !!process.env.GOOGLE_CLIENT_EMAIL, "key:", !!process.env.GOOGLE_PRIVATE_KEY, "apiKey:", !!process.env.GOOGLE_API_KEY, "folder:", !!process.env.GOOGLE_DRIVE_FOLDER_ID);
   try {
     const { searchParams } = new URL(request.url);
     const limit = Number(searchParams.get("limit")) || 0;
@@ -22,7 +20,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Некорректный ключ проекта" }, { status: 400 });
     }
 
-    console.log("[v0] GATE 3: calling fetchPhotosWithMetadata");
     const source = await resolvePhotoSource(project);
 
     // Проект без подключённой папки — пустая галерея вместо запроса
@@ -38,8 +35,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const allPhotos = await fetchPhotosWithMetadata(source);
-    console.log("[v0] GATE 4: got", allPhotos.length, "photos");
+    const allPhotos = await fetchPhotosWithMetadata(source, project);
     const folders = getFolders(allPhotos);
     const tags = getTags(allPhotos);
     const total = allPhotos.length;
@@ -57,7 +53,6 @@ export async function GET(request: NextRequest) {
           }, allPhotos[0].processedAt)
         : "";
 
-    console.log("[v0] GATE 5: responding with", photos.length, "photos");
     return NextResponse.json({
       photos,
       folders,
@@ -67,7 +62,7 @@ export async function GET(request: NextRequest) {
       hasMore: limit > 0 ? offset + limit < total : false,
     });
   } catch (error) {
-    console.error("[v0] /api/photos ERROR:", error);
+    console.error("[/api/photos] failed:", error);
     return NextResponse.json(
       { error: "Failed to fetch photos" },
       { status: 500 }

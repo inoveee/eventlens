@@ -77,16 +77,28 @@ function driveFilesToPhotos(files: DriveFile[], folder: string): PhotoRecord[] {
 
 type PhotoMetadata = Pick<PhotoRow, "drive_file_id" | "visible_text" | "people_descriptions" | "scene_description" | "face_count" | "mime_type" | "processed_at" | "auto_tag">;
 
-async function fetchSupabaseMetadata(): Promise<Map<string, PhotoMetadata>> {
+/**
+ * Метаданные ИИ-обработки из базы: ключ — drive_file_id.
+ *
+ * Фильтр по проекту обязателен: без него роут выгружал строки ВСЕХ
+ * проектов деплоя на каждый запрос галереи (каждые 60с), а совпавший
+ * drive_file_id мог притянуть чужие описания. projectKey = null —
+ * прежнее поведение (все проекты), нужно только для легаси-строк,
+ * записанных до привязки фото к проекту.
+ */
+async function fetchSupabaseMetadata(
+  projectKey?: string | null,
+): Promise<Map<string, PhotoMetadata>> {
   if (!supabaseAvailable()) return new Map();
   try {
     const { createServerClient } = await import("./supabase");
     const supabase = createServerClient();
-    const { data, error } = await supabase
+    const query = supabase
       .from("photos")
       .select("drive_file_id, visible_text, people_descriptions, scene_description, face_count, mime_type, processed_at, auto_tag")
       .eq("status", "completed")
       .neq("hidden", true);
+    const { data, error } = await (projectKey ? query.eq("project_key", projectKey) : query);
     if (error) return new Map();
     const map = new Map<string, PhotoMetadata>();
     for (const row of data as PhotoMetadata[]) map.set(row.drive_file_id, row);
@@ -105,6 +117,7 @@ export interface PhotoSource {
 
 export async function fetchPhotosWithMetadata(
   source?: PhotoSource,
+  projectKey?: string | null,
 ): Promise<PhotoRecord[]> {
   // Источник фото: папка, подключённая организатором в админке,
   // либо настройки окружения проекта (см. eventSettingsStore).
@@ -120,12 +133,21 @@ export async function fetchPhotosWithMetadata(
     resolved.provider === "yandex"
       ? fetchPhotosFromYandexFolder(resolved.value)
       : fetchPhotosFromDriveFolder(resolved.value),
-    fetchSupabaseMetadata(),
+    fetchSupabaseMetadata(projectKey),
   ]);
-  if (metadata.size === 0) return drivePhotos;
+
+  // Легаси-совместимость: строки, записанные до привязки фото к проекту
+  // (миграция 015), лежат в «default». Если у проекта метаданных нет, а
+  // фотографии в папке есть — один раз пробуем без фильтра, чтобы галерея
+  // не потеряла описания и лица.
+  const rows =
+    metadata.size === 0 && projectKey && drivePhotos.length > 0
+      ? await fetchSupabaseMetadata(null)
+      : metadata;
+  if (rows.size === 0) return drivePhotos;
 
   for (const photo of drivePhotos) {
-    const row = metadata.get(photo.driveFileId);
+    const row = rows.get(photo.driveFileId);
     if (row) {
       photo.visibleText = row.visible_text || "";
       photo.peopleDescriptions = row.people_descriptions || "";
@@ -155,14 +177,11 @@ export async function fetchPhotosFromDriveFolder(
   const { googleApiKey } = config;
   const useServiceAccount = isServiceAccountConfigured();
 
-  console.log("[v0] GATE A: fetchPhotos - SA:", useServiceAccount, "folder:", !!driveFolderId, "apiKey:", !!googleApiKey);
-
   if (!driveFolderId) return [];
   if (!useServiceAccount && !googleApiKey) return [];
 
   try {
     const opts = { revalidate: 30 };
-    console.log("[v0] GATE B: fetching with", useServiceAccount ? "ServiceAccount" : "APIKey");
 
     // Use Service Account if configured, otherwise fall back to API Key
     const [rootFiles, subfolders] = useServiceAccount
@@ -174,8 +193,6 @@ export async function fetchPhotosFromDriveFolder(
           listDriveImages(driveFolderId, googleApiKey, opts),
           listDriveSubfolders(driveFolderId, googleApiKey, opts),
         ]);
-
-    console.log("[v0] GATE C: root files:", rootFiles.length, "subfolders:", subfolders.length);
 
     const allPhotos = driveFilesToPhotos(rootFiles, "Root");
 
@@ -196,10 +213,9 @@ export async function fetchPhotosFromDriveFolder(
     );
     allPhotos.forEach((p, i) => { p.id = String(i + 1); });
 
-    console.log("[v0] GATE D: total photos:", allPhotos.length);
     return allPhotos;
   } catch (err) {
-    console.error("[v0] GATE E: ERROR", err);
+    console.error("[photos] fetchPhotosFromDriveFolder failed:", err);
     return [];
   }
 }

@@ -127,6 +127,9 @@ create index if not exists idx_photos_hidden
   on photos (hidden) where hidden = true;
 create index if not exists idx_photos_auto_tag
   on photos (auto_tag) where auto_tag is not null;
+-- Pipeline status counts filter by project + status (admin dashboard)
+create index if not exists idx_photos_project_status
+  on photos (project_key, status);
 
 -- Face embeddings (partial index — excludes NULL sentinel embeddings)
 create index if not exists idx_face_embeddings_hnsw
@@ -625,6 +628,57 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- ============================================================
+-- Pipeline status aggregate (migration 020)
+-- ============================================================
+-- One call replaces the six count(*) queries + full-table scans the admin
+-- dashboard used per poll (every 5s). p_project_key = null → all projects
+-- (super_admin); for an admin the server injects the licence's project_key.
+create or replace function admin_photo_status(p_project_key text default null)
+returns jsonb
+language sql stable security definer set search_path = public as $$
+  with scoped as (
+    select status,
+           description_embedding is not null as has_embedding,
+           coalesce(folder, '') as folder,
+           processed_at,
+           created_at,
+           filename,
+           error_message
+    from photos
+    where p_project_key is null or project_key = p_project_key
+  )
+  select jsonb_build_object(
+    'total',          (select count(*) from scoped),
+    'completed',      (select count(*) from scoped where status = 'completed'),
+    'pending',        (select count(*) from scoped where status = 'pending'),
+    'processing',     (select count(*) from scoped where status = 'processing'),
+    'errors',         (select count(*) from scoped where status = 'error'),
+    'withEmbeddings', (select count(*) from scoped where has_embedding),
+    'faceEmbeddings', (
+      select count(distinct fe.drive_file_id)
+      from face_embeddings fe
+      where fe.embedding is not null
+        and (p_project_key is null or fe.project_key = p_project_key)
+    ),
+    'lastProcessed', (select max(processed_at) from scoped where status = 'completed'),
+    'folders', coalesce((
+      select jsonb_agg(jsonb_build_object('name', f.folder, 'count', f.cnt)
+                       order by f.cnt desc)
+      from (select folder, count(*) as cnt from scoped group by folder) f
+    ), '[]'::jsonb),
+    'recentErrors', coalesce((
+      select jsonb_agg(jsonb_build_object('filename', e.filename, 'error', e.error_message)
+                       order by e.created_at desc)
+      from (select filename, error_message, created_at
+            from scoped
+            where status = 'error'
+            order by created_at desc
+            limit 10) e
+    ), '[]'::jsonb)
+  );
+$$;
+
+-- ============================================================
 -- Lock down: RLS on with no policies; revoke function execution from
 -- public roles. Service role bypasses RLS and is the only caller.
 -- ============================================================
@@ -642,4 +696,6 @@ revoke execute on function
   analytics_hourly(text, timestamptz, timestamptz, text),
   analytics_top_photos(text, timestamptz, timestamptz, int),
   analytics_by_project(timestamptz, timestamptz)
+  from public, anon, authenticated;
+revoke execute on function admin_photo_status(text)
   from public, anon, authenticated;

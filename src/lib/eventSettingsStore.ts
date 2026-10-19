@@ -234,6 +234,20 @@ export interface ProjectAccess {
 
 const ACCESS_COLUMNS = "gallery_password_hash, whitelabel_enabled, is_active";
 
+/** Безопасные дефолты доступа: пароля нет, whitelabel выключен, проект активен. */
+export function defaultProjectAccess(): ProjectAccess {
+  return { galleryPasswordHash: null, whitelabelEnabled: false, isActive: true };
+}
+
+function accessFromRow(row: Record<string, unknown>): ProjectAccess {
+  return {
+    galleryPasswordHash:
+      typeof row.gallery_password_hash === "string" ? row.gallery_password_hash : null,
+    whitelabelEnabled: row.whitelabel_enabled === true,
+    isActive: row.is_active !== false,
+  };
+}
+
 function missingAccessTable(error: { code?: string; message?: string }): boolean {
   return error.code === "42P01" || /gallery_password_hash/i.test(error.message || "");
 }
@@ -242,11 +256,7 @@ function missingAccessTable(error: { code?: string; message?: string }): boolean
 export async function readProjectAccess(
   key: string = DEFAULT_PROJECT_KEY,
 ): Promise<ProjectAccess> {
-  const fallback: ProjectAccess = {
-    galleryPasswordHash: null,
-    whitelabelEnabled: false,
-    isActive: true,
-  };
+  const fallback = defaultProjectAccess();
   if (!isProjectKey(key) || storageEngine() !== "supabase") return fallback;
   try {
     const { createServerClient } = await import("./supabase");
@@ -264,16 +274,77 @@ export async function readProjectAccess(
       return fallback;
     }
     if (!data) return fallback;
-    return {
-      galleryPasswordHash:
-        typeof data.gallery_password_hash === "string" ? data.gallery_password_hash : null,
-      whitelabelEnabled: data.whitelabel_enabled === true,
-      isActive: data.is_active !== false,
-    };
+    return accessFromRow(data as Record<string, unknown>);
   } catch (err) {
     console.error("[eventSettingsStore] readProjectAccess failed:", err);
     return fallback;
   }
+}
+
+export interface ProjectRecordAccess {
+  /** null — проекта с таким ключом нет (публичная страница отдаёт 404). */
+  record: SettingsRecord | null;
+  access: ProjectAccess;
+}
+
+/**
+ * Запись проекта вместе с её security-полями — за один запрос.
+ *
+ * Публичная страница /p/<key> раньше ходила в ту же строку event_settings
+ * трижды (projectExists + readPublished + readProjectAccess), да ещё
+ * дважды — из generateMetadata и из самой страницы. Теперь это один SELECT,
+ * а вызывающая сторона мемоизирует результат через React cache().
+ *
+ * Ошибка доступа к БД не подменяется «проекта нет»: StorageUnavailableError
+ * уходит наверх, как и раньше в projectExists — иначе сбой инфраструктуры
+ * выглядел бы как несуществующий проект.
+ */
+export async function readRecordWithAccess(
+  key: string,
+): Promise<ProjectRecordAccess> {
+  if (!isProjectKey(key)) {
+    return { record: null, access: defaultProjectAccess() };
+  }
+  if (storageEngine() !== "supabase") {
+    return { record: await readFileRecord(key), access: defaultProjectAccess() };
+  }
+
+  const { createServerClient } = await import("./supabase");
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("event_settings")
+    .select(`${SUPABASE_COLUMNS}, ${ACCESS_COLUMNS}`)
+    .eq("event_key", key)
+    .maybeSingle();
+
+  if (error) {
+    if (supabaseMissingTable(error)) {
+      throw new StorageUnavailableError(
+        "В базе данных нет таблицы настроек. Примените миграции supabase/migrations/013 и 014.",
+      );
+    }
+    // Колонок доступа ещё нет (миграция 018 не применена) — отдаём запись
+    // без них, с безопасными дефолтами. Страница работает как прежде.
+    if (missingAccessTable(error)) {
+      return { record: await readFromSupabase(key), access: defaultProjectAccess() };
+    }
+    throw new StorageUnavailableError(
+      `Не удалось прочитать настройки из базы данных: ${error.message}`,
+    );
+  }
+  if (!data) return { record: null, access: defaultProjectAccess() };
+
+  const row = data as Record<string, unknown>;
+  return {
+    record: coerceRecord({
+      draft: row.draft,
+      published: row.published,
+      photos: row.photos,
+      meta: row.meta,
+      updatedAt: row.updated_at,
+    }),
+    access: accessFromRow(row),
+  };
 }
 
 /**

@@ -9,7 +9,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import { cookies } from "next/headers";
 import PhotoGallery from "@/components/gallery/PhotoGallery";
 import GalleryGate from "@/components/gallery/GalleryGate";
@@ -17,11 +17,7 @@ import GridSkeleton from "@/components/gallery/GridSkeleton";
 import EventSettingsProvider from "@/components/EventSettingsProvider";
 import Footer from "@/components/Footer";
 import { isProjectKey } from "@/lib/eventSettings";
-import {
-  projectExists,
-  readPublished,
-  readProjectAccess,
-} from "@/lib/eventSettingsStore";
+import { readRecordWithAccess } from "@/lib/eventSettingsStore";
 import { GALLERY_COOKIE, isProjectUnlocked, verifyGalleryAccess } from "@/lib/galleryAuth";
 
 export const dynamic = "force-dynamic";
@@ -34,18 +30,25 @@ interface ProjectPageProps {
   params: Promise<{ key: string }>;
 }
 
-async function resolveProject(key: string) {
+/**
+ * Проект для страницы: настройки и доступ — одним запросом к БД.
+ * `cache` мемоизирует результат на время запроса, поэтому
+ * generateMetadata и сама страница читают строку один раз, а не дважды.
+ */
+const resolveProject = cache(async (key: string) => {
   if (!isProjectKey(key)) return null;
-  if (!(await projectExists(key))) return null;
-  const published = await readPublished(key);
-  const access = await readProjectAccess(key);
+  const { record, access } = await readRecordWithAccess(key);
+  // Нет строки — нет проекта: выдуманный адрес отдаёт 404, а не
+  // «стандартную» галерею.
+  if (!record) return null;
+  const published = record.published;
   return {
     name: published?.text.name || eventName,
     tagline: published?.text.tagline || eventTagline,
     published,
     access,
   };
-}
+});
 
 export async function generateMetadata({ params }: ProjectPageProps): Promise<Metadata> {
   const { key } = await params;
