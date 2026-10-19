@@ -394,6 +394,7 @@ Authentication model:
 - **Public routes** (`/api/photos`, `/api/search`, `/api/match`, …) — no auth; scoped by `project`/`project_key` so one project can never read another's data.
 - **Gallery password** — per-project, set in the admin panel (`event_settings.gallery_password_hash`, argon2id). `/api/auth/login` verifies it and sets a signed guest cookie (`el_gallery_access`) listing the unlocked projects. `APP_PASSWORD` is only the fallback for the legacy `default` project.
 - **Admin routes** (`/api/admin/*`) — session cookie set by `/api/admin/auth/login` (argon2id + short-lived signed JWT, `/admin/login` UI). `Authorization: Bearer <ADMIN_API_SECRET>` is still accepted for scripts/CI and is treated as `super_admin`. Role, active flag, and license are re-read from the DB on every request; an `admin` always gets its one licensed project from `admin_project_access`, never from the request.
+- **Organizer panel routes** (`/api/event/*`) — same admin session cookie (`requireAdminAccess`): `super_admin` sees and edits every project, `admin` only its licensed one (`create`/`duplicate` are `super_admin`-only). `GET /api/event/settings` without credentials returns the published version only (the public gallery fetches it with `credentials: "omit"`); the legacy Bearer fallback remains for scripts/CI.
 
 | Endpoint | Method | Description |
 |---|---|---|
@@ -418,6 +419,13 @@ Authentication model:
 | `/api/admin/autotag` | POST | Batch auto-tag all photos |
 | `/api/admin/duplicates` | GET | Find duplicate photos by phash |
 | `/api/admin/photos/hide` | POST | Hide/unhide photos |
+| `/api/event/projects` | GET | Project list (session-scoped: all for `super_admin`, only the licensed one for `admin`) |
+| `/api/event/projects` | POST | Project actions: `create`/`duplicate` (`super_admin` only), `rename`, `alias`, `archive`, `delete` |
+| `/api/event/settings` | GET | Full draft for a session; published version only without credentials |
+| `/api/event/settings` | PUT | Save project draft (session required) |
+| `/api/event/publish` | POST | Publish the current draft to the public page |
+| `/api/event/photos` | POST | Photo folder connect/sync + processing counters |
+| `/api/event/reset` | POST | Reset branding to defaults |
 
 ---
 

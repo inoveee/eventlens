@@ -1,12 +1,13 @@
 // @TheTechMargin 2026
 // Настройки проекта (мероприятия).
 //   GET  без авторизации — только опубликованная версия (нужна публичной
-//        странице /p/<key>); с авторизацией — черновик, публикация и
+//        странице /p/<key>); с cookie-сессией — черновик, публикация и
 //        статус папки. Ключ проекта — параметр ?project=<key>.
-//   PUT  сохранить черновик (авторизация обязательна; ключ — в теле).
+//   PUT  сохранить черновик (сессия обязательна; ключ — в теле).
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/adminAuth";
+import { SESSION_COOKIE } from "@/lib/session";
 import {
   SettingsValidationError,
   coerceProjectKey,
@@ -33,12 +34,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Некорректный ключ проекта" }, { status: 400 });
     }
 
-    // Присланный, но неверный токен — это 401, а не публичный ответ:
-    // иначе панель организатора не отличит неудачный вход от успеха.
-    if (request.headers.get("authorization")) {
-      if (!verifyAuth(request)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+    // Креды присланы (cookie-сессия или legacy Bearer) — отвечаем строго:
+    // полный черновик при успехе, отказ (401/403) как есть — панель должна
+    // отличить неудачный вход от успеха и показать «Лицензия истекла» и т.п.
+    // Без кредов — публичная версия для /p/<key> (галерея специально
+    // ходит с credentials: "omit", поэтому даже залогиненный посетитель
+    // получает только опубликованное).
+    const hasCredentials =
+      Boolean(request.headers.get("authorization")) ||
+      request.cookies.has(SESSION_COOKIE);
+    if (hasCredentials) {
+      const auth = await requireAdminAccess(request, key);
+      if (!auth.ok) return auth.response;
       const record = await readRecord(key);
       return NextResponse.json({
         draft: record.draft,
@@ -64,16 +71,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const body = await request.json().catch(() => ({}));
     const key = coerceProjectKey(body?.project);
     if (key === null) {
       return NextResponse.json({ error: "Некорректный ключ проекта" }, { status: 400 });
     }
+    const auth = await requireAdminAccess(request, key);
+    if (!auth.ok) return auth.response;
     const draft = normalizeEventSettings(body?.draft);
     const record = await writeRecord(key, { draft });
     return NextResponse.json({

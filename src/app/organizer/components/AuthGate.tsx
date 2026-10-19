@@ -8,12 +8,49 @@
 import type { ReactNode } from "react";
 import { useOrganizerAuth } from "@/hooks/organizer/OrganizerContext";
 
-export function LoginScreen() {
-  const { secret, setSecret, login, authenticating, authError } = useOrganizerAuth();
+const closeIcon = {
+  width: 15,
+  height: 15,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  "aria-hidden": true,
+};
+
+/**
+ * Вход в панель: email + пароль (cookie-сессия). `onClose` закрывает
+ * экран входа — тот же путь, что и кнопка «Назад» на стартовом экране
+ * (возврат на интро). Крестик — в правом верхнем углу карточки.
+ */
+export function LoginScreen({ onClose }: { onClose?: () => void }) {
+  const {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    login,
+    authenticating,
+    authError,
+  } = useOrganizerAuth();
 
   return (
     <div className="org-login-bg flex min-h-screen flex-col items-center justify-center px-5 py-10">
-      <div className="org-card w-full max-w-[380px] p-7 shadow-[0_18px_50px_rgba(16,16,20,0.10)]">
+      <div className="org-card relative w-full max-w-[380px] p-7 shadow-[0_18px_50px_rgba(16,16,20,0.10)]">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-[var(--org-dim)] transition hover:bg-[var(--org-panel)] hover:text-[var(--org-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--el-primary,#4f7cff)]"
+          >
+            <svg {...closeIcon}>
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        )}
         <div className="mb-6 flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/noveee-icon.png" alt="noveee.me" className="h-8 w-auto" />
@@ -24,7 +61,7 @@ export function LoginScreen() {
 
         <h1 className="text-[19px] font-semibold tracking-[-0.02em]">Вход</h1>
         <p className="org-hint mt-1.5">
-          Пароль выдаёт администратор мероприятия.
+          Учётную запись выдаёт администратор мероприятия.
         </p>
 
         <form
@@ -34,18 +71,33 @@ export function LoginScreen() {
             void login();
           }}
         >
-          <label className="org-label mb-1.5" htmlFor="org-secret">
-            Пароль организатора
+          <label className="org-label mb-1.5" htmlFor="org-email">
+            Email
           </label>
           <input
-            id="org-secret"
-            type="password"
+            id="org-email"
+            type="email"
             className="org-input"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
             autoFocus
             aria-invalid={authError ? "true" : undefined}
           />
+
+          <label className="org-label mb-1.5 mt-3.5" htmlFor="org-password">
+            Пароль
+          </label>
+          <input
+            id="org-password"
+            type="password"
+            className="org-input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            aria-invalid={authError ? "true" : undefined}
+          />
+
           {authError && (
             <p className="mt-2 text-[12.5px] font-medium text-[var(--org-err)]">
               {authError}
@@ -83,7 +135,13 @@ export function LoadingScreen({ label = "Загружаем…" }: { label?: str
 }
 
 /** Показывает содержимое только вошедшему организатору. */
-export default function OrganizerAuthGate({ children }: { children: ReactNode }) {
+export default function OrganizerAuthGate({
+  children,
+  onClose,
+}: {
+  children: ReactNode;
+  onClose?: () => void;
+}) {
   const { checking, authenticated } = useOrganizerAuth();
   if (checking) {
     // Тот же фон, что и у входа, — без мигания пустого экрана.
@@ -96,7 +154,7 @@ export default function OrganizerAuthGate({ children }: { children: ReactNode })
   if (!authenticated) {
     return (
       <div className="org-shell">
-        <LoginScreen />
+        <LoginScreen onClose={onClose} />
       </div>
     );
   }

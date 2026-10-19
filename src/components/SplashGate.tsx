@@ -5,7 +5,7 @@
 // странице входа под ним.
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import SplashScreen from "./SplashScreen";
 
 // Сколько сплэш стоит на экране, и сколько длится его растворение
@@ -13,11 +13,28 @@ import SplashScreen from "./SplashScreen";
 const SPLASH_MS = 9000;
 const FADE_MS = 700;
 
+// Модульный флаг: сплэш крутится один раз за жизнь вкладки, а не при
+// каждом возврате на «/» (SPA-навигация из панели перемонтирует
+// страницу — без флага каждый возврат показывал бы 9-секундный сплэш).
+// Перезагрузка страницы обнуляет модуль — сплэш играет заново.
+let splashShown = false;
+
+/** Панель уже показана (вход выполнен или открыта прямая ссылка на
+ *  /organizer/*) — сплэш на стартовом экране больше не нужен. */
+export function markSplashSeen(): void {
+  splashShown = true;
+}
+
 export default function SplashGate({ children }: { children: ReactNode }) {
   // "show" — сплэш на экране, "fade" — растворяется, "hidden" — убран.
-  const [splash, setSplash] = useState<"show" | "fade" | "hidden">("show");
+  const [splash, setSplash] = useState<"show" | "fade" | "hidden">(() =>
+    splashShown ? "hidden" : "show",
+  );
+  const started = useRef(splash !== "hidden");
 
   useEffect(() => {
+    if (!started.current) return;
+    splashShown = true;
     const toFade = setTimeout(() => setSplash("fade"), SPLASH_MS);
     const toHide = setTimeout(() => setSplash("hidden"), SPLASH_MS + FADE_MS);
     return () => {

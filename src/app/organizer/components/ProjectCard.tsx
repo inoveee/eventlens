@@ -10,7 +10,8 @@ import type { ProjectSummary } from "@/lib/eventSettings";
 
 export interface ProjectActions {
   onRename: (project: ProjectSummary) => void;
-  onDuplicate: (project: ProjectSummary) => void;
+  /** Только для super_admin; у роли admin скрыто. */
+  onDuplicate?: (project: ProjectSummary) => void;
   onToggleArchive: (project: ProjectSummary) => void;
   onDelete: (project: ProjectSummary) => void;
 }
@@ -113,7 +114,8 @@ function KebabMenu({
             type="button"
             role="menuitem"
             className="org-menu-item"
-            onClick={() => run(() => actions.onDuplicate(project))}
+            onClick={() => run(() => actions.onDuplicate?.(project))}
+            hidden={!actions.onDuplicate}
           >
             Дублировать настройки
           </button>

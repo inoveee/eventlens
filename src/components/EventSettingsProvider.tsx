@@ -119,6 +119,9 @@ export default function EventSettingsProvider({
     const attempt = () =>
       fetch(`/api/event/settings?project=${encodeURIComponent(projectKey)}`, {
         cache: "no-store",
+        // Публичная страница ходит без cookie: сервер в таком случае
+        // отдаёт только опубликованную версию, а не черновик панели.
+        credentials: "omit",
       })
         .then((res) => (res.ok ? res.json() : null))
         .catch(() => null);

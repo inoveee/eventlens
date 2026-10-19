@@ -2,7 +2,8 @@
 // Состояние панели организатора.
 //
 // Два контекста:
-//   1. OrganizerAuthProvider — авторизация (пароль, сессия, уведомления).
+//   1. OrganizerAuthProvider — авторизация (email+пароль → cookie-сессия,
+//      уведомления).
 //      Живёт в корневом layout: и стартовый экран «Мои проекты», и
 //      настройки проекта начинаются со входа.
 //   2. OrganizerProvider — состояние одного проекта: черновик настроек,
@@ -31,16 +32,80 @@ import {
   HeroSettings,
   PhotoConnection,
   ProjectMeta,
+  ProjectSummary,
   defaultEventSettings,
   settingsEqual,
 } from "@/lib/eventSettings";
 import { storeDraftForPreview } from "@/components/EventSettingsProvider";
-
-const SECRET_STORAGE_KEY = "el-organizer-secret";
+import { markSplashSeen } from "@/components/SplashGate";
 
 // На сервере useLayoutEffect недоступен; до первой отрисовки в браузере
 // он применяется, чтобы залогиненная вкладка не мигала экраном загрузки.
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+export interface OrganizerSessionUser {
+  id: string;
+  email: string;
+  role: "super_admin" | "admin";
+}
+
+// Модульный кэш сессии: провайдер монтируется заново на каждом из
+// маршрутов «/» и /organizer/*, а кэш в памяти модуля переживает эти
+// переходы внутри вкладки. Переходы по панели (например, возврат на
+// «Все проекты») восстанавливают вход до первой отрисовки — без экрана
+// «Проверяем вход…». Живёт только в памяти: перезагрузка страницы
+// заново спрашивает /api/admin/auth/me у сервера.
+let sessionCache: OrganizerSessionUser | null = null;
+let sessionChecked = false;
+let sessionProbe: Promise<OrganizerSessionUser | null> | null = null;
+
+/** GET текущей сессии; 401 — «проверено, входа нет». */
+async function fetchSessionUser(): Promise<OrganizerSessionUser | null> {
+  const res = await fetch("/api/admin/auth/me", { credentials: "same-origin" });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`session probe failed: ${res.status}`);
+  const data = (await res.json().catch(() => null)) as {
+    user?: OrganizerSessionUser | null;
+  } | null;
+  return data?.user ?? null;
+}
+
+/** Первая проверка сессии с дедупликацией: параллельные монтирования
+ *  (стартовый экран + layout панели) делят один запрос. */
+function probeSession(): Promise<OrganizerSessionUser | null> {
+  if (!sessionProbe) {
+    sessionProbe = fetchSessionUser()
+      .then((user) => {
+        sessionCache = user;
+        sessionChecked = true;
+        return user;
+      })
+      .finally(() => {
+        sessionProbe = null;
+      });
+  }
+  return sessionProbe;
+}
+
+/* Кэш списка проектов: переживает переходы панели внутри вкладки —
+ * возврат на «Все проекты» показывает список сразу, без спиннера, а
+ * свежая версия тянем в фоне. Привязан к владельцу (user.id), чтобы
+ * после входа другого пользователя не показать чужой список;
+ * при выходе не читается (owner уже другой/null) и чистится в logout. */
+let projectsCache: { owner: string; projects: ProjectSummary[] } | null = null;
+
+export function readProjectsCache(owner: string | null | undefined): ProjectSummary[] | null {
+  if (!owner || !projectsCache || projectsCache.owner !== owner) return null;
+  return projectsCache.projects;
+}
+
+export function writeProjectsCache(owner: string, projects: ProjectSummary[]): void {
+  projectsCache = { owner, projects };
+}
+
+function clearProjectsCache(): void {
+  projectsCache = null;
+}
 
 export type PublishStatus = {
   label: string;
@@ -51,15 +116,22 @@ export type PublishStatus = {
 /* ────────────────────────── Авторизация ────────────────────────── */
 
 interface OrganizerAuthValue {
-  /** Проверяем сохранённый секрет — ни входа, ни контента ещё нет. */
+  /** Первая проверка cookie-сессии — ни входа, ни контента ещё нет. */
   checking: boolean;
   authenticated: boolean;
   authenticating: boolean;
   authError: string | null;
-  secret: string;
-  setSecret: (v: string) => void;
+  /** Кто вошёл (email и роль — для меню профиля); null до входа. */
+  user: OrganizerSessionUser | null;
+  email: string;
+  setEmail: (v: string) => void;
+  password: string;
+  setPassword: (v: string) => void;
   login: () => Promise<void>;
   logout: () => void;
+  /** Сервер ответил 401 (cookie протухла): гасим вход на клиенте,
+   *  чтобы панель показала экран авторизации вместо вечной ошибки. */
+  sessionExpired: () => void;
 
   toast: { id: number; message: string } | null;
   notify: (message: string) => void;
@@ -75,9 +147,10 @@ export function useOrganizerAuth(): OrganizerAuthValue {
 }
 
 export function OrganizerAuthProvider({ children }: { children: React.ReactNode }) {
-  const [secret, setSecretState] = useState("");
+  const [email, setEmailState] = useState("");
+  const [password, setPasswordState] = useState("");
+  const [user, setUser] = useState<OrganizerSessionUser | null>(null);
   const [checking, setChecking] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
   const [authenticating, setAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -95,101 +168,137 @@ export function OrganizerAuthProvider({ children }: { children: React.ReactNode 
 
   const dismissToast = useCallback(() => setToast(null), []);
 
-  /** Проверяет секрет лёгким запросом списка проектов. */
-  const probeAuth = useCallback(async (candidate: string): Promise<boolean> => {
-    const res = await fetch("/api/event/projects", {
-      headers: { Authorization: `Bearer ${candidate}` },
-    });
-    return res.ok;
-  }, []);
-
-  // Скрытый вход: секрет из этой вкладки (sessionStorage). Если он есть,
-  // показываем панель сразу (до первой отрисовки), а подлинность пароля
-  // проверяем в фоне — переходы по панели и перезагрузка не показывают
-  // экран «Проверяем вход…».
+  // Скрытый вход: сессия из кэша модуля (переживает переходы по панели
+  // внутри вкладки) показывается до первой отрисовки, а подлинность
+  // cookie в это время проверяется в фоне. Без кэша (первая загрузка
+  // страницы) — один запрос /api/admin/auth/me.
   useIsoLayoutEffect(() => {
-    let stored = "";
-    try {
-      stored = sessionStorage.getItem(SECRET_STORAGE_KEY) || "";
-    } catch {}
-    if (!stored) {
+    if (sessionChecked) {
+      setUser(sessionCache);
       setChecking(false);
-      return;
+      if (!sessionCache) return;
+      // Вход уже есть — возврат на стартовый экран не должен крутить сплэш.
+      markSplashSeen();
+      // Фоновая сверка: cookie могла истечь между переходами.
+      let cancelled = false;
+      fetchSessionUser()
+        .then((fresh) => {
+          if (cancelled) return;
+          if (fresh) return;
+          sessionCache = null;
+          setUser(null);
+          setAuthError("Сессия истекла — войдите заново");
+        })
+        .catch(() => {
+          // Сеть моргнула — оставляем сессию: сервер откажет на запросах сам.
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-    setSecretState(stored);
-    setAuthenticated(true);
-    setChecking(false);
+
     let cancelled = false;
-    probeAuth(stored)
-      .then((ok) => {
-        if (cancelled || ok) return;
-        try {
-          sessionStorage.removeItem(SECRET_STORAGE_KEY);
-        } catch {}
-        setAuthenticated(false);
-        setSecretState("");
-        setAuthError("Пароль не подошёл — войдите заново");
+    probeSession()
+      .then((found) => {
+        if (cancelled) return;
+        setUser(found);
+        setChecking(false);
+        if (found) markSplashSeen();
       })
       .catch(() => {
-        // Сеть моргнула — оставляем сессию: сервер откажет на запросах сам.
+        if (cancelled) return;
+        setChecking(false);
+        setAuthError("Не удалось проверить вход — попробуйте ещё раз");
       });
     return () => {
       cancelled = true;
     };
-  }, [probeAuth]);
+  }, []);
 
-  const setSecret = useCallback((value: string) => {
-    setSecretState(value);
+  const setEmail = useCallback((value: string) => {
+    setEmailState(value);
+    setAuthError(null);
+  }, []);
+
+  const setPassword = useCallback((value: string) => {
+    setPasswordState(value);
     setAuthError(null);
   }, []);
 
   const login = useCallback(async () => {
-    if (!secret.trim()) {
-      setAuthError("Введите пароль организатора");
+    if (!email.trim() || !password) {
+      setAuthError("Укажите email и пароль");
       return;
     }
     setAuthenticating(true);
     setAuthError(null);
     try {
-      const ok = await probeAuth(secret.trim());
-      if (!ok) {
-        setAuthError("Неверный пароль");
+      const res = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        user?: OrganizerSessionUser;
+        error?: string;
+      };
+      if (!res.ok) {
+        setAuthError(data.error || "Не удалось войти");
         return;
       }
-      try {
-        sessionStorage.setItem(SECRET_STORAGE_KEY, secret.trim());
-      } catch {}
-      setAuthenticated(true);
+      const found = data.user ?? null;
+      sessionCache = found;
+      sessionChecked = true;
+      setUser(found);
+      setPasswordState("");
     } catch {
-      setAuthError("Не удалось войти — попробуйте ещё раз");
+      setAuthError("Сеть недоступна — попробуйте позже");
     } finally {
       setAuthenticating(false);
     }
-  }, [secret, probeAuth]);
+  }, [email, password]);
 
   const logout = useCallback(() => {
-    try {
-      sessionStorage.removeItem(SECRET_STORAGE_KEY);
-    } catch {}
-    setAuthenticated(false);
-    setSecretState("");
+    // Сначала гасим вход в UI, чтобы запрос с битой cookie не мигал
+    // ошибкой; сама cookie чистится сервером.
+    sessionCache = null;
+    sessionChecked = true;
+    clearProjectsCache();
+    setUser(null);
+    setAuthError(null);
+    setPasswordState("");
+    void fetch("/api/admin/auth/logout", { method: "POST" }).catch(() => {});
+  }, []);
+
+  // 401 от /api/event/*: cookie уже мертва на сервере, логаут-запрос не
+  // нужен — просто переводим панель на экран входа с подсказкой.
+  const sessionExpired = useCallback(() => {
+    sessionCache = null;
+    sessionChecked = true;
+    setUser(null);
+    setAuthError("Сессия истекла — войдите заново");
   }, []);
 
   const value = useMemo<OrganizerAuthValue>(
     () => ({
       checking,
-      authenticated,
+      authenticated: user !== null,
       authenticating,
       authError,
-      secret,
-      setSecret,
+      user,
+      email,
+      setEmail,
+      password,
+      setPassword,
       login,
       logout,
+      sessionExpired,
       toast,
       notify,
       dismissToast,
     }),
-    [checking, authenticated, authenticating, authError, secret, setSecret, login, logout, toast, notify, dismissToast],
+    [checking, user, authenticating, authError, email, setEmail, password, setPassword, login, logout, sessionExpired, toast, notify, dismissToast],
   );
 
   return <OrganizerAuthContext.Provider value={value}>{children}</OrganizerAuthContext.Provider>;
@@ -264,22 +373,22 @@ interface SettingsResponse {
   error?: string;
 }
 
-/** Запросы панели: секрет из авторизации, ключ проекта — в URL/теле. */
+/** Запросы панели: cookie-сессия уходит автоматически (same-origin),
+ *  ключ проекта — в URL/теле. */
 function useProjectRequest(projectKey: string) {
-  const { secret } = useOrganizerAuth();
   return useCallback(
     async (path: string, init?: RequestInit): Promise<Response> => {
       const separator = path.includes("?") ? "&" : "?";
       return fetch(`${path}${separator}project=${encodeURIComponent(projectKey)}`, {
         ...init,
+        credentials: "same-origin",
         headers: {
-          Authorization: `Bearer ${secret}`,
           "Content-Type": "application/json",
           ...(init?.headers || {}),
         },
       });
     },
-    [secret, projectKey],
+    [projectKey],
   );
 }
 
@@ -290,7 +399,7 @@ export function OrganizerProvider({
   projectKey: string;
   children: React.ReactNode;
 }) {
-  const { notify, authenticated } = useOrganizerAuth();
+  const { notify, authenticated, sessionExpired } = useOrganizerAuth();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draft, setDraft] = useState<EventSettings>(() => defaultEventSettings());
@@ -330,7 +439,8 @@ export function OrganizerProvider({
     try {
       const res = await request("/api/event/settings");
       if (res.status === 401) {
-        setLoadError("Сессия истекла — войдите снова.");
+        // Cookie протухла — гасим вход, гейт покажет экран авторизации.
+        sessionExpired();
         return;
       }
       const data = (await res.json()) as SettingsResponse;
@@ -342,7 +452,7 @@ export function OrganizerProvider({
     } finally {
       setLoading(false);
     }
-  }, [request, applyResponse]);
+  }, [request, applyResponse, sessionExpired]);
 
   // Загрузка после входа (или сразу, если секрет уже в вкладке).
   useEffect(() => {

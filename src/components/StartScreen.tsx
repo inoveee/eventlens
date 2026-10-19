@@ -7,10 +7,14 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useOrganizerAuth } from "@/hooks/organizer/OrganizerContext";
 import ProjectsScreen from "@/app/organizer/components/ProjectsScreen";
 import { IntroPrototype } from "@/components/intro/IntroPrototype";
+
+// На сервере useLayoutEffect недоступен; в браузере flip stage идёт до
+// первой отрисовки — вошедший организатор не видит кадра интро.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export default function StartScreen() {
   const { checking, authenticated } = useOrganizerAuth();
@@ -19,7 +23,8 @@ export default function StartScreen() {
   const [stage, setStage] = useState<"intro" | "app">("intro");
 
   // Сессия уже восстановлена — организатору промежуточный экран не нужен.
-  useEffect(() => {
+  // До первой отрисовки, чтобы возврат на «Все проекты» был мгновенным.
+  useIsoLayoutEffect(() => {
     if (!checking && authenticated && stage === "intro") setStage("app");
   }, [checking, authenticated, stage]);
 
@@ -29,12 +34,16 @@ export default function StartScreen() {
   // возвращает на интро (Forward — снова на вход). Reload на входе
   // восстанавливает stage из history.state.
   useEffect(() => {
-    if (history.state?.screen === "auth") setStage("app");
     const onPopState = () => {
       setStage(history.state?.screen === "auth" ? "app" : "intro");
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  // Reload на экране входа: восстанавливаем stage до первой отрисовки.
+  useIsoLayoutEffect(() => {
+    if (history.state?.screen === "auth") setStage("app");
   }, []);
 
   const openLogin = useCallback(() => {
@@ -59,27 +68,10 @@ export default function StartScreen() {
   }, []);
 
   if (stage === "app") {
-    return (
-      <>
-        {/* Кнопка-назад видна только на неавторизованном экране (вход):
-            после входа организатор остаётся в панели. Тёмная заливка —
-            на светлом фоне логина белая pill сливалась с картинкой. */}
-        {!checking && !authenticated && (
-          <button
-            type="button"
-            onClick={backToIntro}
-            aria-label="Назад на главную"
-            className="fixed left-0 top-4 z-[100] flex items-center gap-2 rounded-r-full border-y border-r border-[var(--org-border-strong)] bg-[var(--org-text)] py-3 pl-4 pr-5 text-[14px] font-semibold text-white shadow-[0_8px_26px_rgba(0,0,0,0.35)] transition hover:pr-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--el-primary,#4f7cff)]"
-          >
-            <span aria-hidden className="text-[16px] leading-none">
-              ←
-            </span>
-            Назад
-          </button>
-        )}
-        <ProjectsScreen />
-      </>
-    );
+    // Выход с экрана входа (крестик на карточке) — та же функция, что
+    // была у кнопки «← Назад»: history.back() снимает запись {screen:"auth"}
+    // и popstate сам возвращает на интро; fallback — прямой переход.
+    return <ProjectsScreen onClose={backToIntro} />;
   }
   return <IntroPrototype onLogin={openLogin} />;
 }

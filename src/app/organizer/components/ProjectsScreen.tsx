@@ -5,15 +5,23 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ProjectSummary } from "@/lib/eventSettings";
-import { useOrganizerAuth } from "@/hooks/organizer/OrganizerContext";
+import {
+  readProjectsCache,
+  useOrganizerAuth,
+  writeProjectsCache,
+} from "@/hooks/organizer/OrganizerContext";
 import Toast from "@/components/Toast";
 import OrganizerAuthGate, { LoadingScreen } from "./AuthGate";
 import { Field, Modal } from "./ui";
 import { ProjectCard, ProjectRow, type ProjectActions } from "./ProjectCard";
+
+// На сервере useLayoutEffect недоступен; в браузере кэш списка
+// подхватывается до первой отрисовки — без кадра спиннера.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 type Filter = "all" | "published" | "draft" | "archive";
 type View = "grid" | "list";
@@ -29,6 +37,8 @@ interface ProjectsResponse {
   projects?: ProjectSummary[];
   error?: string;
 }
+
+const projectsRequestHeaders = { "Content-Type": "application/json" };
 
 interface CreateState {
   open: boolean;
@@ -49,6 +59,7 @@ const EMPTY_CREATE: CreateState = {
 };
 
 function AvatarMenu({ onLogout }: { onLogout: () => void }) {
+  const { user } = useOrganizerAuth();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -86,8 +97,12 @@ function AvatarMenu({ onLogout }: { onLogout: () => void }) {
       {open && (
         <div className="org-menu-panel" role="menu">
           <div className="px-3 py-2">
-            <p className="text-[13px] font-semibold">Организатор</p>
-            <p className="org-hint">Парольный доступ</p>
+            <p className="truncate text-[13px] font-semibold" title={user?.email}>
+              {user?.email ?? "Организатор"}
+            </p>
+            <p className="org-hint">
+              {user?.role === "super_admin" ? "Все проекты" : "Один проект"}
+            </p>
           </div>
           <div className="org-menu-divider" aria-hidden />
           <button
@@ -107,9 +122,9 @@ function AvatarMenu({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-export default function ProjectsScreen() {
+export default function ProjectsScreen({ onClose }: { onClose?: () => void }) {
   const router = useRouter();
-  const { secret, notify, toast, dismissToast, logout } = useOrganizerAuth();
+  const { user, notify, toast, dismissToast, logout, sessionExpired } = useOrganizerAuth();
 
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -130,43 +145,66 @@ export default function ProjectsScreen() {
     busy: boolean;
   }>({ project: null, busy: false });
 
+  // Возврат на «Все проекты»: список из кэша вкладки показывается до
+  // первой отрисовки (без спиннера), свежая версия тянем в фоне.
+  // Смена владельца (logout/другой пользователь) сбрасывает показанное.
+  const ownerRef = useRef<string | null>(null);
+  useIsoLayoutEffect(() => {
+    const owner = user?.id ?? null;
+    if (ownerRef.current === owner) return;
+    ownerRef.current = owner;
+    setProjects(owner ? readProjectsCache(owner) : null);
+  }, [user?.id]);
+
   const request = useCallback(
     async (path: string, init?: RequestInit): Promise<Response> => {
+      // Cookie-сессия уходит автоматически (same-origin).
       return fetch(path, {
         ...init,
+        credentials: "same-origin",
         headers: {
-          Authorization: `Bearer ${secret}`,
-          "Content-Type": "application/json",
+          ...projectsRequestHeaders,
           ...(init?.headers || {}),
         },
       });
     },
-    [secret],
+    [],
   );
 
-  const load = useCallback(async () => {
-    // До восстановления секрета из sessionStorage не ходим в API —
-    // иначе гонка гасит успешную загрузку поздним 401.
-    if (!secret.trim()) return;
-    setLoadError(null);
-    try {
-      const res = await request("/api/event/projects");
-      if (res.status === 401) {
-        setLoadError("Сессия истекла — войдите снова.");
-        return;
+  const load = useCallback(
+    async (background = false) => {
+      if (!user) return;
+      // Без юзера (до восстановления сессии) не ходим в API — иначе
+      // гонка гасит успешную загрузку поздним 401.
+      if (!background) setLoadError(null);
+      try {
+        const res = await request("/api/event/projects");
+        if (res.status === 401) {
+          // Cookie протухла — гасим вход, гейт покажет экран авторизации.
+          sessionExpired();
+          return;
+        }
+        const data = (await res.json()) as ProjectsResponse;
+        if (!res.ok) throw new Error(data.error || "Не удалось загрузить проекты");
+        const list = data.projects ?? [];
+        writeProjectsCache(user.id, list);
+        setProjects(list);
+        setLoadError(null);
+      } catch (err) {
+        // stale-while-revalidate: фоновое обновление при уже показанном
+        // списке не мигает экраном ошибки — остаёмся на кэше.
+        if (readProjectsCache(user.id)) return;
+        setLoadError(err instanceof Error ? err.message : "Не удалось загрузить проекты");
       }
-      const data = (await res.json()) as ProjectsResponse;
-      if (!res.ok) throw new Error(data.error || "Не удалось загрузить проекты");
-      setProjects(data.projects ?? []);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Не удалось загрузить проекты");
-    }
-  }, [request, secret]);
+    },
+    [request, user, sessionExpired],
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!user) return;
+    // Есть кэш — фоновое обновление; нет — первая загрузка.
+    void load(readProjectsCache(user.id) !== null);
+  }, [load, user]);
 
   /** Общая отправка действий; key — идентификатор занятого объекта. */
   const act = useCallback(
@@ -234,13 +272,18 @@ export default function ProjectsScreen() {
     onRename: (project) =>
       setRename({ project, title: project.title, busy: false, error: null }),
 
-    onDuplicate: async (project) => {
-      const data = await act({ action: "duplicate", key: project.key }, project.key);
-      if (data) {
-        notify("Создана копия проекта");
-        void load();
-      }
-    },
+    // Создание копий — только у super_admin (admin имеет лицензию ровно
+    // на один проект и увидел бы отказ «Недостаточно прав»).
+    onDuplicate:
+      user?.role === "super_admin"
+        ? async (project) => {
+            const data = await act({ action: "duplicate", key: project.key }, project.key);
+            if (data) {
+              notify("Создана копия проекта");
+              void load();
+            }
+          }
+        : undefined,
 
     onToggleArchive: async (project) => {
       const data = await act(
@@ -292,8 +335,10 @@ export default function ProjectsScreen() {
   const hasAnyProjects = (projects?.length ?? 0) > 0;
   const hasActiveFilters = query.trim().length > 0 || filter !== "all";
 
+  const canCreate = user?.role === "super_admin";
+
   return (
-    <OrganizerAuthGate>
+    <OrganizerAuthGate onClose={onClose}>
       <div className="org-shell min-h-screen">
         {/* ── Верхняя панель ── */}
         <header className="sticky top-0 z-30 border-b border-[var(--org-border)] bg-[color-mix(in_srgb,var(--org-bg)_88%,transparent)] backdrop-blur-md">
@@ -306,13 +351,15 @@ export default function ProjectsScreen() {
               </span>
             </Link>
             <div className="ml-auto flex items-center gap-2.5">
-              <button
-                type="button"
-                className="org-btn org-btn-primary"
-                onClick={() => setCreate({ ...EMPTY_CREATE, open: true })}
-              >
-                <span aria-hidden>+</span> Создать проект
-              </button>
+              {canCreate && (
+                <button
+                  type="button"
+                  className="org-btn org-btn-primary"
+                  onClick={() => setCreate({ ...EMPTY_CREATE, open: true })}
+                >
+                  <span aria-hidden>+</span> Создать проект
+                </button>
+              )}
               <AvatarMenu onLogout={logout} />
             </div>
           </div>
@@ -426,15 +473,18 @@ export default function ProjectsScreen() {
                   У вас пока нет проектов
                 </p>
                 <p className="org-hint mt-2 max-w-sm">
-                  Создайте мероприятие, чтобы подключить фотографии и настроить
-                  его страницу.
+                  {canCreate
+                    ? "Создайте мероприятие, чтобы подключить фотографии и настроить его страницу."
+                    : "По вашей лицензии пока нет доступных проектов. Обратитесь к администратору."}
                 </p>
-                <button
-                  className="org-btn org-btn-primary mt-5"
-                  onClick={() => setCreate({ ...EMPTY_CREATE, open: true })}
-                >
-                  Создать первый проект
-                </button>
+                {canCreate && (
+                  <button
+                    className="org-btn org-btn-primary mt-5"
+                    onClick={() => setCreate({ ...EMPTY_CREATE, open: true })}
+                  >
+                    Создать первый проект
+                  </button>
+                )}
               </div>
             ) : visible.length === 0 ? (
               <div className="org-card flex flex-col items-center px-6 py-12 text-center">

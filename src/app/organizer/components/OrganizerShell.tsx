@@ -5,7 +5,7 @@
 
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -43,6 +43,7 @@ const PROJECTS_ICON = (
 
 export default function OrganizerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { toast, dismissToast, logout } = useOrganizerAuth();
   const {
     projectKey,
@@ -122,7 +123,9 @@ export default function OrganizerShell({ children }: { children: ReactNode }) {
       : null;
 
   return (
-    <OrganizerAuthGate>
+    // Крестик на экране входа (сессия истекла внутри панели) закрывает
+    // настройки и уводит на стартовый экран.
+    <OrganizerAuthGate onClose={() => router.push("/")}>
       <div className="org-shell min-h-screen">
         <div className="mx-auto flex min-h-screen w-full max-w-[1360px]">
           {/* ── Боковая панель ── */}

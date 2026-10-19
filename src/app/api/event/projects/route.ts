@@ -3,10 +3,12 @@
 //   GET  /api/event/projects              — все проекты (включая архив)
 //   POST /api/event/projects { action }   — create | rename | duplicate |
 //                                           archive | delete
-// Доступ только по паролю организатора (Bearer).
+// Доступ — cookie-сессия админа (requireAdminAccess): super_admin видит
+// все проекты, admin — только свой по лицензии. Legacy Bearer
+// ADMIN_API_SECRET принимается для скриптов/CI как super_admin.
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/adminAuth";
 import {
   PROJECT_DESCRIPTION_LIMIT,
   PROJECT_TITLE_LIMIT,
@@ -31,11 +33,16 @@ export const dynamic = "force-dynamic";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdminAccess(request);
+  if (!auth.ok) return auth.response;
   try {
-    const projects = await listProjectSummaries();
+    const all = await listProjectSummaries();
+    // У admin лицензия ровно на один проект — список сужаем до неё,
+    // чужие проекты он не должен даже видеть.
+    const projects =
+      auth.ctx.role === "admin" && auth.ctx.projectKey
+        ? all.filter((p) => p.key === auth.ctx.projectKey)
+        : all;
     return NextResponse.json({ projects, storage: storageEngine() });
   } catch (err) {
     if (err instanceof StorageUnavailableError) {
@@ -55,13 +62,19 @@ function pickKey(body: Record<string, unknown>): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const action = typeof body.action === "string" ? body.action : "";
+
+    if (action === "create" || action === "duplicate") {
+      // Создание новых проектов — только super_admin: у admin лицензия
+      // ровно на один проект, созданный проект он всё равно не увидит.
+      const auth = await requireAdminAccess(request);
+      if (!auth.ok) return auth.response;
+      if (auth.ctx.role !== "super_admin") {
+        return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
+      }
+    }
 
     if (action === "create") {
       const title = typeof body.title === "string" ? body.title.trim() : "";
@@ -95,6 +108,14 @@ export async function POST(request: NextRequest) {
     const key = pickKey(body);
     if (!key) {
       return NextResponse.json({ error: "Проект не выбран" }, { status: 400 });
+    }
+
+    // Остальные действия привязаны к проекту: admin работает только со
+    // своим (проект берётся из лицензии в БД, а не из запроса),
+    // super_admin — с любым.
+    if (action !== "duplicate") {
+      const auth = await requireAdminAccess(request, key);
+      if (!auth.ok) return auth.response;
     }
 
     if (action === "rename") {

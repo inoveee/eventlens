@@ -4,7 +4,7 @@
 // сброса публичная страница сразу возвращается к исходному дизайну.
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/adminAuth";
 import { coerceProjectKey, defaultEventSettings } from "@/lib/eventSettings";
 import {
   ProjectNotFoundError,
@@ -15,10 +15,6 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const body = await request.json().catch(() => ({}));
     const key =
@@ -27,6 +23,8 @@ export async function POST(request: NextRequest) {
     if (key === null) {
       return NextResponse.json({ error: "Некорректный ключ проекта" }, { status: 400 });
     }
+    const auth = await requireAdminAccess(request, key);
+    if (!auth.ok) return auth.response;
     const defaults = defaultEventSettings();
     const next = await writeRecord(key, { draft: defaults, published: defaults });
     return NextResponse.json({

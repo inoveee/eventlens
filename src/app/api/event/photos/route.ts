@@ -6,7 +6,7 @@
 // доступа/поиска возвращаются как понятные сообщения.
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/adminAuth";
 import { classifyPhotoUrl, probePhotoSource, readProcessingStats } from "@/lib/photoSource";
 import { coerceProjectKey } from "@/lib/eventSettings";
 import {
@@ -20,10 +20,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const body = (await request.json().catch(() => ({}))) as {
       action?: string;
@@ -36,6 +32,8 @@ export async function POST(request: NextRequest) {
     if (key === null) {
       return NextResponse.json({ error: "Некорректный ключ проекта" }, { status: 400 });
     }
+    const auth = await requireAdminAccess(request, key);
+    if (!auth.ok) return auth.response;
     const record = await readRecord(key);
 
     let target = (body.url || "").trim();
